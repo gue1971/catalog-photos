@@ -87,6 +87,9 @@
     cursor: grab;
     backface-visibility: hidden;
     transform: translateZ(0);
+    
+    /* 重要: セル自体の高さを中身に合わせるため、明示的な高さ指定はしない */
+    height: auto;
   }
   .cell:active { cursor: grabbing; }
 
@@ -94,16 +97,24 @@
     background: var(--card-bg);
     box-shadow: 0 2px 4px rgba(0,0,0,0.5);
     border: 1px solid #444;
+    display: flex;
+    flex-direction: column;
   }
   
   .cell.card img {
-    width: 100%; height: auto;
-    display: block; pointer-events: none;
-    min-height: 40px; object-fit: contain;
+    width: 100%; 
+    height: auto; /* アスペクト比維持 */
+    display: block; 
+    pointer-events: none;
+    min-height: 40px; 
+    object-fit: contain;
+    /* 画像のアスペクト比を固定（読み込み前ガタつき防止 & スペーサーとの整合性） */
+    aspect-ratio: 4/3; 
   }
   
   .cell.card .placeholder-icon {
-    width: 100%; aspect-ratio: 4/3;
+    width: 100%; 
+    aspect-ratio: 4/3; /* 画像がない場合もこの比率 */
     background: #000;
     display: flex; align-items: center; justify-content: center;
     color: #555;
@@ -114,6 +125,8 @@
     padding: calc(2px * var(--zoom)) calc(3px * var(--zoom));
     background: var(--card-bg);
     display: none;
+    /* テキストが増えても高さが自然に伸びるように */
+    flex-shrink: 0; 
   }
   .board.view-detail .cell.card .info-area { display: block; }
 
@@ -128,12 +141,30 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
+  /* スペーサー修正: カードと全く同じ構造・サイズ感にする */
   .cell.spacer {
     background: rgba(255,255,255,0.05);
     border: 1px dashed rgba(255,255,255,0.15);
-    /* 修正: カード画像が横幅いっぱい(height: auto)なので、厳密なアスペクト比固定は難しいが、
-       ダミー画像と同じ 4/3 程度にしておくのが無難 */
-    aspect-ratio: 4/3; 
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* スペーサーの中に「見えないダミー画像エリア」を作ることで高さを同期 */
+  .cell.spacer::before {
+    content: "";
+    display: block;
+    width: 100%;
+    aspect-ratio: 4/3; /* カード画像と同じ比率 */
+  }
+  
+  /* 詳細表示モードの時は、テキストエリア分の高さも確保する */
+  .board.view-detail .cell.spacer::after {
+    content: "";
+    display: block;
+    /* テキストエリアの高さ概算（padding + font-size * 2行分） */
+    /* 9px + 7.5px + padding等の計算値 */
+    height: calc((9px + 7.5px + 4px) * var(--zoom)); 
+    border-top: 1px solid rgba(255,255,255,0.05);
   }
 
   /* プレースホルダー */
@@ -182,7 +213,7 @@
     background: var(--card-bg); border: 1px solid #aaa; opacity: 0.95;
     will-change: left, top;
   }
-  .ghost img { width: 100%; height: auto; display: block; }
+  .ghost img { width: 100%; height: auto; display: block; aspect-ratio: 4/3; } /* ゴーストも比率固定 */
   .ghost .info-area { padding: 4px; background: #222; display: block !important;}
   .ghost .info-title { font-size: 11px; font-weight: bold; color: #fff;}
   .ghost .info-sub { font-size: 9px; color: #aaa;}
@@ -221,27 +252,24 @@
 
 <script>
 /**
- * Horse Board Logic (v13: Min Zoom Limit & Spacer Fix)
- * - Uses aggressive 'touchmove' cancellation to prevent Safari scroll interference during drag.
- * - Restores horizontal scroll capability for Touchpads/Mice.
- * - Maintains Stable Swap (DOM move) logic.
- * - NEW: Min Zoom limited to 1.0 (fit to screen width).
- * - NEW: Spacer size matches card aspect ratio.
+ * Horse Board Logic (v14: Spacer Size Fix)
+ * - Spacer CSS adjusted to mimic Card size (Image Ratio + Info Area).
+ * - Zoom Limit: Min 1.0.
  */
 
 const CONFIG = {
   columnCount: 12,
-  minZoom: 1.0, // 修正: これ以上小さくならない（12列が画面幅いっぱい）
+  minZoom: 1.0, // 縮小限界
   maxZoom: 3.5,
   detailThreshold: 1.5,
   
-  longPressDelay: 250, // 長押し時間
+  longPressDelay: 250, 
   doubleTapDelay: 300,
   
   autoScrollZone: 60,
   autoScrollSpeed: 15,
   
-  storageKey: "horse_board_v13_limit" // バージョン変更
+  storageKey: "horse_board_v13_limit" 
 };
 
 const state = {
