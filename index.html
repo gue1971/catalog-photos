@@ -131,7 +131,9 @@
   .cell.spacer {
     background: rgba(255,255,255,0.05);
     border: 1px dashed rgba(255,255,255,0.15);
-    aspect-ratio: 4/1;
+    /* 修正: カード画像が横幅いっぱい(height: auto)なので、厳密なアスペクト比固定は難しいが、
+       ダミー画像と同じ 4/3 程度にしておくのが無難 */
+    aspect-ratio: 4/3; 
   }
 
   /* プレースホルダー */
@@ -219,15 +221,17 @@
 
 <script>
 /**
- * Horse Board Logic (v12: iPad Ultimate Fix)
+ * Horse Board Logic (v13: Min Zoom Limit & Spacer Fix)
  * - Uses aggressive 'touchmove' cancellation to prevent Safari scroll interference during drag.
  * - Restores horizontal scroll capability for Touchpads/Mice.
  * - Maintains Stable Swap (DOM move) logic.
+ * - NEW: Min Zoom limited to 1.0 (fit to screen width).
+ * - NEW: Spacer size matches card aspect ratio.
  */
 
 const CONFIG = {
   columnCount: 12,
-  minZoom: 0.5,
+  minZoom: 1.0, // 修正: これ以上小さくならない（12列が画面幅いっぱい）
   maxZoom: 3.5,
   detailThreshold: 1.5,
   
@@ -237,7 +241,7 @@ const CONFIG = {
   autoScrollZone: 60,
   autoScrollSpeed: 15,
   
-  storageKey: "horse_board_v12_final" 
+  storageKey: "horse_board_v13_limit" // バージョン変更
 };
 
 const state = {
@@ -284,7 +288,8 @@ const app = {
         const saved = JSON.parse(raw);
         if (saved.columns && Array.isArray(saved.columns)) {
           state.columns = saved.columns;
-          state.zoom = saved.zoom || 1.0;
+          // Zoomの読み込み時も制限をかける
+          state.zoom = Math.max(saved.zoom || 1.0, CONFIG.minZoom);
           while(state.columns.length < CONFIG.columnCount) state.columns.push([]);
           loaded = true;
         }
