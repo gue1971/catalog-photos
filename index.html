@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (Swap & Flow)</title>
+<title>Horse Board (Stable Swap)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -23,7 +23,7 @@
     overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
-    /* ブラウザ標準の操作（パン、ズーム）を許可 */
+    /* iPadでのスクロール・ズームを阻害しない */
     touch-action: pan-x pan-y pinch-zoom; 
   }
 
@@ -65,8 +65,6 @@
     transform-origin: 0 0;
     padding: 8px;
     gap: calc(var(--gap) * var(--zoom));
-    /* アニメーション中のちらつき防止 */
-    backface-visibility: hidden;
   }
 
   .column {
@@ -75,7 +73,9 @@
     flex-direction: column;
     gap: calc(var(--gap) * var(--zoom));
     min-width: 0; 
-    padding-bottom: 100px; /* ドロップしやすくするための余白 */
+    padding-bottom: 100px;
+    /* 空の列でもドロップ判定を受け付けるための最小高さ */
+    min-height: 200px; 
   }
 
   /* セル */
@@ -83,13 +83,13 @@
     position: relative;
     border-radius: calc(6px * var(--zoom));
     overflow: hidden;
-    /* 重要: セル上でもスクロール等は許可しておく */
     touch-action: pan-x pan-y pinch-zoom;
-    /* 移動アニメーション */
+    /* 移動アニメーション（滑らかに入れ替わる） */
     transition: transform 0.2s cubic-bezier(0.2, 0, 0.2, 1);
     cursor: grab;
-    /* レイアウト最適化 */
-    contain: layout paint;
+    /* iPadでのチラつき防止 */
+    backface-visibility: hidden;
+    transform: translateZ(0);
   }
   .cell:active { cursor: grabbing; }
 
@@ -137,15 +137,15 @@
     aspect-ratio: 4/1;
   }
 
-  /* ドラッグ中の「抜け殻（プレースホルダー）」 */
+  /* ドラッグ中のプレースホルダー（元の場所） */
   .cell.is-placeholder {
-    opacity: 0.1; /* ほぼ透明にして空き地感を出す */
+    opacity: 0.15;
     border: 1px dashed #666;
     filter: grayscale(100%);
-    z-index: 0;
+    /* 重要: プレースホルダー自身はイベントを受け付けないようにして、下の要素判定を邪魔させない手もあるが、
+       今回はpointer-events: autoのままにして、自分自身へのドロップを検知して除外する */
   }
   
-  /* タップした瞬間の反応 */
   .cell.pressed {
     transform: scale(0.95);
     transition: transform 0.1s;
@@ -174,22 +174,29 @@
   .tooltip-popup strong { display: block; margin-bottom: 4px; font-size: 1.1em; }
   .tooltip-popup span { color: #ccc; font-size: 0.9em; }
 
-  /* ゴースト（指についてくる本体） */
+  /* ゴースト */
   .ghost {
     position: fixed; z-index: 9999;
     width: 120px;
     border-radius: 6px; overflow: hidden;
     box-shadow: 0 20px 50px rgba(0,0,0,0.8);
-    /* 指の少し上に表示 */
     transform: translate(-50%, -110%) scale(1.1); 
     pointer-events: none;
-    background: var(--card-bg); border: 1px solid #aaa; opacity: 1.0;
+    background: var(--card-bg); border: 1px solid #aaa; opacity: 0.95;
     will-change: left, top;
   }
   .ghost img { width: 100%; height: auto; display: block; }
   .ghost .info-area { padding: 4px; background: #222; display: block !important;}
   .ghost .info-title { font-size: 11px; font-weight: bold; color: #fff;}
   .ghost .info-sub { font-size: 9px; color: #aaa;}
+
+  /* ページ全体のドラッグ中クラス（カーソル変更など） */
+  body.is-dragging {
+    cursor: grabbing;
+    /* ドラッグ中はスクロールを禁止（JSで制御するが、念のためCSSでも） */
+    touch-action: none; 
+    overscroll-behavior: none;
+  }
 
   #fileInput { display: none; }
 </style>
@@ -219,10 +226,11 @@
 
 <script>
 /**
- * Horse Board Logic (Swap & Flow Version)
- * - Logic: "Swap" instead of "Insert". 
- * When dragging A over B, B moves to A's original spot (the placeholder).
- * - UX: Long press (250ms) to drag. Native scrolling enabled otherwise.
+ * Horse Board Logic (v11: Stable Swap & iPad Fix)
+ * - DOM Preservation: Uses DOM manipulation (insertBefore/appendChild) instead of re-rendering.
+ * This prevents Pointer Capture loss on iPad.
+ * - Interaction: Default is Scroll. Long press to Drag (Swap mode).
+ * - Zoom: Standard Pinch Zoom allowed.
  */
 
 const CONFIG = {
@@ -231,14 +239,13 @@ const CONFIG = {
   maxZoom: 3.5,
   detailThreshold: 1.5,
   
-  longPressDelay: 250, // 長押し判定時間
+  longPressDelay: 300, // 長押し時間（しっかり判定）
   doubleTapDelay: 300,
   
-  // オートスクロール設定
   autoScrollZone: 60,
-  autoScrollSpeed: 12,
+  autoScrollSpeed: 15,
   
-  storageKey: "horse_board_v10_swap" 
+  storageKey: "horse_board_v11_stable" 
 };
 
 const state = {
@@ -366,7 +373,7 @@ const app = {
     state.columns.forEach((items, colIndex) => {
       const colEl = document.createElement("div");
       colEl.className = "column";
-      colEl.dataset.colIndex = colIndex;
+      colEl.dataset.colIndex = colIndex; // DOMで列インデックスを保持
       items.forEach((item, itemIndex) => {
         const cell = this.createCell(item, colIndex, itemIndex);
         colEl.appendChild(cell);
@@ -380,8 +387,10 @@ const app = {
     el.className = `cell ${item.type}`;
     if (item.isNew) el.classList.add("new-entry");
 
+    // data属性は初期化時のみ設定し、あとはDOM移動時に適宜更新する運用も可能だが
+    // 今回はSwap時にDOM操作で実体を移動させる
     el.dataset.col = colIndex;
-    el.dataset.idx = itemIndex;
+    el.dataset.idx = itemIndex; // 参考値（DOM順序が正）
     el.dataset.uKey = item.uKey;
     el.dataset.type = item.type;
 
@@ -414,17 +423,42 @@ const app = {
   },
 
   addSpacer() {
-    state.columns[0].unshift({ uKey: generateUniqueKey(), type: "spacer" });
-    this.render();
+    // 最初の列の先頭に追加
+    const newItem = { uKey: generateUniqueKey(), type: "spacer" };
+    state.columns[0].unshift(newItem);
+    
+    // DOM追加
+    const colEl = this.board.children[0];
+    const cell = this.createCell(newItem, 0, 0);
+    colEl.insertBefore(cell, colEl.firstChild);
+    
+    // インデックス振り直し
+    this.updateDomIndices(0);
     this.save();
   },
   
   addDummyCard() {
     if (state.masterData.length === 0) return;
     const randomData = state.masterData[Math.floor(Math.random()*state.masterData.length)];
-    state.columns[0].unshift(this.buildCardData(randomData));
-    this.render();
+    const newItem = this.buildCardData(randomData);
+    state.columns[0].unshift(newItem);
+    
+    const colEl = this.board.children[0];
+    const cell = this.createCell(newItem, 0, 0);
+    colEl.insertBefore(cell, colEl.firstChild);
+    
+    this.updateDomIndices(0);
     this.save();
+  },
+
+  // DOM要素の dataset.col / dataset.idx を現在の状態に合わせて更新する
+  updateDomIndices(colIndex) {
+    if (colIndex < 0 || colIndex >= this.board.children.length) return;
+    const colEl = this.board.children[colIndex];
+    Array.from(colEl.children).forEach((child, idx) => {
+      child.dataset.col = colIndex;
+      child.dataset.idx = idx;
+    });
   },
 
   resetData() {
@@ -464,7 +498,7 @@ const app = {
   },
 
   // ------------------------------------------------
-  // Core Event Logic (Swap & iPad Stability)
+  // Core Event Logic (Stable Swap & iPad)
   // ------------------------------------------------
   attachEvents() {
     let pointerId = null;
@@ -475,16 +509,16 @@ const app = {
     let isDragging = false;
     let isMultiTouch = false;
     
-    let dragEl = null;     // 元のDOM要素（プレースホルダー化される）
-    let ghostEl = null;    // 指についてくる表示用要素
+    let dragEl = null;     // 操作対象の実DOM（プレースホルダーになる）
+    let ghostEl = null;    // 見た目用
     
-    // データ上の現在位置（Swapごとに更新される）
+    // データ上の位置（DOMの位置と同期させる）
     let currentCol = -1;
     let currentIdx = -1;
 
     let autoScrollRafId = null;
 
-    // --- PC Zoom Key Support ---
+    // --- PC Zoom Key ---
     window.addEventListener("keydown", (e) => {
       if (e.target.tagName === 'INPUT') return;
       if (e.key === "+" || e.key === "=") { this.applyZoom(0.1); e.preventDefault(); }
@@ -538,16 +572,19 @@ const app = {
       if (isMultiTouch) return;
 
       isDragging = true;
+      document.body.classList.add("is-dragging"); // スクロール抑止等
+      
       dragEl = el;
       
-      // Pointer Capture: スクロールを無効化してドラッグに専念させる
+      // iPadでの「落ちる」対策: 
+      // Pointer Captureを確実にセットする。DOMを削除しないので維持されるはず。
       if (pointerId && dragEl.setPointerCapture) {
         try { dragEl.setPointerCapture(pointerId); } catch(e){}
       }
       
-      // 元の場所をプレースホルダー化
       dragEl.classList.add("is-placeholder");
       
+      // DOMから現在位置を取得
       currentCol = Number(dragEl.dataset.col);
       currentIdx = Number(dragEl.dataset.idx);
       
@@ -555,6 +592,9 @@ const app = {
       ghostEl = el.cloneNode(true);
       ghostEl.className = "ghost";
       ghostEl.classList.remove("is-placeholder", "pressed");
+      // ゴースト生成時にインラインスタイル等はリセット
+      ghostEl.style.transform = "translate(-50%, -110%) scale(1.1)";
+      
       const info = ghostEl.querySelector(".info-area");
       if(info) info.style.display = "block";
       document.body.appendChild(ghostEl);
@@ -581,7 +621,7 @@ const app = {
       pointerId = e.pointerId;
       startX = e.clientX; 
       startY = e.clientY;
-      cell.classList.add("pressed"); // タップフィードバック
+      cell.classList.add("pressed");
 
       const now = Date.now();
       if (now - lastTapTime < CONFIG.doubleTapDelay) {
@@ -601,28 +641,29 @@ const app = {
     this.board.addEventListener("pointermove", (e) => {
       if (e.pointerId !== pointerId) return;
 
-      // ドラッグ中
       if (isDragging) {
-        e.preventDefault(); // ブラウザ標準動作（スクロール）をブロック
+        e.preventDefault(); // ドラッグ中はスクロール禁止
         checkAutoScroll(e.clientY);
         updateGhost(e.clientX, e.clientY);
+        
+        // スワップ判定
         handleSwapLogic(e.clientX, e.clientY);
         return;
       }
 
-      // ドラッグ前：スクロール判定
+      // ドラッグ前のスクロール判定
       const dx = Math.abs(e.clientX - startX);
       const dy = Math.abs(e.clientY - startY);
       if (dx > 10 || dy > 10) { 
-        clearTimers(); // 動いたら長押しキャンセル（スクロール優先）
+        clearTimers();
         const cell = e.target.closest(".cell");
         if (cell) cell.classList.remove("pressed");
       }
     });
 
-    // --- Swap Logic (The Core) ---
+    // --- Swap Logic (No Re-render) ---
     const handleSwapLogic = (x, y) => {
-      // ゴーストを一時的に隠して下の要素を取得
+      // ゴースト下の要素判定
       if (ghostEl) ghostEl.style.display = 'none';
       let target = document.elementFromPoint(x, y);
       if (ghostEl) ghostEl.style.display = 'block';
@@ -630,73 +671,65 @@ const app = {
       if (!target) return;
       const targetCell = target.closest('.cell');
       
-      // ターゲットがセルであり、かつ自分自身（プレースホルダー）でない場合
+      // ターゲットが有効で、自分自身でなく、ボード内にある場合
       if (targetCell && targetCell !== dragEl && this.board.contains(targetCell)) {
         
         const targetCol = Number(targetCell.dataset.col);
-        const targetIdx = Number(targetCell.dataset.idx);
+        const targetIdx = Number(targetCell.dataset.idx); // DOM上のインデックス
 
-        // データ配列のスワップ
+        // 1. データ配列のスワップ
         const temp = state.columns[currentCol][currentIdx];
         state.columns[currentCol][currentIdx] = state.columns[targetCol][targetIdx];
         state.columns[targetCol][targetIdx] = temp;
 
-        // DOMの移動（プレースホルダーをターゲットの位置へ移動、ターゲットをプレースホルダーの位置へ移動）
-        // 実際にはDOMツリー上でノードを入れ替えるだけで、CSS Transitionによりアニメーションする
-        const parentColEl = this.board.children[currentCol];
-        const targetParentColEl = this.board.children[targetCol];
-
-        // 複雑なノード入れ替えの簡易実装：再描画はコストが高いので、DOM操作で対応
-        // 1. targetCellの次の兄弟を覚えておく
-        const targetNext = targetCell.nextSibling;
+        // 2. DOM要素の直接移動（再描画しない！）
+        // Swapなので、dragEl(プレースホルダー) と targetCell を入れ替える
+        
+        const dragParent = dragEl.parentNode;
+        const targetParent = targetCell.parentNode;
         const dragNext = dragEl.nextSibling;
+        const targetNext = targetCell.nextSibling;
 
-        // 同じ列内での交換
-        if (currentCol === targetCol) {
-             // 単純なswapは難しいので、データに合わせて再描画したいが重い。
-             // ここでは「相手（target）」を「自分（placeholder）」の場所に飛ばすことで表現する。
-             // ユーザーの要望「重なっているカードが空いたところに移動」＝ Swap。
-             
-             // 単純化のため、DOMのdatasetを更新しつつ、要素を入れ替える
-             // しかしReactのようなDiffエンジンがないので、直接DOMをいじると管理が複雑化する。
-             // ここは「部分再描画」が最も安全かつ確実。
-             // 列（Column）ごとの再描画ならコストは低い。
-             
-             this.renderColumn(currentCol);
+        // 同じ要素同士の交換はありえないが念のため
+        if (dragEl === targetCell) return;
+
+        // DOM操作: targetCellをdragElの場所に、dragElをtargetCellの場所に
+        // replaceWith等は使わず、insertBeforeで丁寧にやる
+        
+        // ケースA: 同じ親（同じ列）
+        if (dragParent === targetParent) {
+            // 単純な交換
+            // dragElの場所にtargetCellを、targetCellの場所にdragElを
+            // ノードの位置関係で処理が変わるため、プレースホルダー方式を使う
+            const tempNode = document.createTextNode('');
+            dragParent.insertBefore(tempNode, dragEl);
+            dragParent.insertBefore(dragEl, targetCell);
+            dragParent.insertBefore(targetCell, tempNode);
+            tempNode.remove();
         } else {
-             // 異なる列間の交換
-             this.renderColumn(currentCol);
-             this.renderColumn(targetCol);
+            // ケースB: 違う親（違う列）
+            const tempNode = document.createTextNode('');
+            dragParent.insertBefore(tempNode, dragEl); // dragElの元位置マーク
+            targetParent.insertBefore(dragEl, targetCell); // dragElをtargetの位置へ
+            dragParent.insertBefore(targetCell, tempNode); // targetをdragElの元位置へ
+            tempNode.remove();
         }
 
-        // 現在位置を更新
+        // 3. インデックス情報の更新（DOMのdataset）
+        // 列全体を更新する必要はないが、入れ替わった2つの要素の属性は最低限更新が必要
+        // 安全のため、影響を受けた列の全要素のidxを振り直す（軽い処理）
+        this.updateDomIndices(currentCol);
+        if (currentCol !== targetCol) {
+            this.updateDomIndices(targetCol);
+        }
+
+        // 現在位置変数の更新
         currentCol = targetCol;
         currentIdx = targetIdx;
         
-        // 再描画されたDOMから新しいdragEl（プレースホルダー）を取得しなおす必要がある
-        // なぜならrenderColumnでDOMが作り直されているから。
-        const newColEl = this.board.children[currentCol];
-        const newDragEl = newColEl.children[currentIdx];
-        
-        if (newDragEl) {
-          dragEl = newDragEl;
-          dragEl.classList.add("is-placeholder"); // 再び透明に
-          // Pointer Captureは切れる可能性があるが、iPadではmoveイベントがdocument等で拾えるならOK
-          // 再設定を試みる
-          if(pointerId) { try{ dragEl.setPointerCapture(pointerId); }catch(e){} }
-        }
+        // Pointer Captureの再確認（DOM移動しても維持されるはずだが）
+        if(pointerId) { try{ dragEl.setPointerCapture(pointerId); }catch(e){} }
       }
-    };
-
-    // 列単位の部分再描画（高速化のため）
-    app.renderColumn = (colIndex) => {
-        const colEl = app.board.children[colIndex];
-        const items = state.columns[colIndex];
-        colEl.innerHTML = "";
-        items.forEach((item, itemIndex) => {
-            const cell = app.createCell(item, colIndex, itemIndex);
-            colEl.appendChild(cell);
-        });
     };
 
     const endInteraction = (e) => {
@@ -710,16 +743,18 @@ const app = {
       
       if (isDragging) {
         isDragging = false;
+        document.body.classList.remove("is-dragging");
+        
         if (ghostEl) ghostEl.remove();
         if (dragEl) {
           dragEl.classList.remove("is-placeholder");
+          // キャプチャ解除
           if (dragEl.releasePointerCapture && pointerId) {
              try { dragEl.releasePointerCapture(pointerId); } catch(e){}
           }
         }
         this.save();
-        // 念のため全リフレッシュ
-        // this.render(); 
+        // ここでの全描画は不要（DOMは既に正しい位置にある）
       }
       pointerId = null;
     };
@@ -735,13 +770,11 @@ const app = {
       if (e.touches.length >= 2) {
         isMultiTouch = true;
         if (isDragging) {
-           // ピンチしたらドラッグキャンセル
            isDragging = false;
+           document.body.classList.remove("is-dragging");
            if(ghostEl) ghostEl.remove();
            if(dragEl) dragEl.classList.remove("is-placeholder");
            stopAutoScroll();
-           // 元に戻す処理が必要だが、今回は位置確定してしまう（簡易対応）
-           this.render();
         }
         clearTimers();
         
@@ -749,6 +782,7 @@ const app = {
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         initialDist = Math.hypot(dx, dy);
         initialZoom = state.zoom;
+        // ピンチ操作はネイティブ動作をさせない（拡大鏡が出たりするのを防ぐ）
         e.preventDefault(); 
       }
     }, { passive: false });
