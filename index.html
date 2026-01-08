@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (ID Based)</title>
+<title>Horse Board (Smart Touch)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -23,7 +23,8 @@
     overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
-    touch-action: none;
+    /* ピンチズーム等のネイティブ操作を干渉させないために auto または manipulation に戻す */
+    touch-action: manipulation;
   }
 
   /* ツールバー */
@@ -52,7 +53,10 @@
     overflow-y: scroll;
     overflow-x: hidden;
     position: relative;
+    /* 慣性スクロール有効 */
     -webkit-overflow-scrolling: touch; 
+    /* ここはスクロール操作を受け付ける */
+    touch-action: pan-y;
   }
 
   /* ボード */
@@ -80,9 +84,12 @@
     position: relative;
     border-radius: calc(6px * var(--zoom));
     overflow: hidden;
-    touch-action: none;
+    /* ここが重要：noneだとスクロール不可になる。manipulationかpan-yにする */
+    touch-action: pan-y pinch-zoom;
     transition: transform 0.1s, opacity 0.1s;
+    cursor: grab;
   }
+  .cell:active { cursor: grabbing; }
 
   .cell.card {
     background: var(--card-bg);
@@ -132,8 +139,10 @@
   .cell.pressed {
     outline: 2px solid var(--accent);
     outline-offset: -2px;
-    transform: scale(0.98);
+    transform: scale(0.96);
+    transition: transform 0.1s;
   }
+  /* ドラッグ中は元の要素を半透明に */
   .cell.dragging { opacity: 0.1; }
   
   .cell.highlight { animation: flash 0.3s ease-out; }
@@ -141,6 +150,15 @@
     0% { filter: brightness(1); }
     50% { filter: brightness(2); background: #444; }
     100% { filter: brightness(1); }
+  }
+  
+  .cell.new-entry {
+    animation: glowNew 2s infinite alternate;
+    box-shadow: 0 0 10px rgba(0, 120, 255, 0.5);
+  }
+  @keyframes glowNew {
+    from { border-color: #444; }
+    to { border-color: #0078ff; }
   }
 
   /* ツールチップ */
@@ -171,12 +189,12 @@
     width: 120px;
     border-radius: 6px; overflow: hidden;
     box-shadow: 0 12px 32px rgba(0,0,0,0.6);
-    transform: translate(-50%, -50%) scale(1.05);
+    transform: translate(-50%, -50%) scale(1.1); /* 少し大きくして浮遊感 */
     pointer-events: none;
-    background: var(--card-bg); border: 1px solid #777; opacity: 0.9;
+    background: var(--card-bg); border: 1px solid #888; opacity: 0.95;
   }
   .ghost img { width: 100%; height: auto; display: block; }
-  .ghost .info-area { padding: 4px; background: #222; }
+  .ghost .info-area { padding: 4px; background: #222; display: block !important;}
   .ghost .info-title { font-size: 11px; font-weight: bold; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
   .ghost .info-sub { font-size: 9px; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
 
@@ -194,6 +212,7 @@
 <div class="toolbar">
   <div class="toolbar-group">
     <button class="btn" onclick="app.addSpacer()"><i class="fa-solid fa-plus"></i> 空白</button>
+    <!-- Add Dummy はもう不要かもしれんが残しておく -->
     <button class="btn" onclick="app.addDummyCard()"><i class="fa-solid fa-horse"></i> 馬追加</button>
   </div>
   <div class="toolbar-group">
@@ -208,10 +227,9 @@
 
 <script>
 /**
- * Horse Board Logic (ID & Computed Path)
- * - Master Data: data/horses.json
- * - Image Path: assets/images/{id}.jpeg
- * - Netkeiba: https://db.netkeiba.com/horse/{id}
+ * Horse Board Logic (Smart Touch & PC Support)
+ * - Touch: Long press to drag. Pinch to zoom (native-like). Scroll enabled.
+ * - PC: Ctrl+Wheel to zoom. Keyboard (+/-) to zoom.
  */
 
 const CONFIG = {
@@ -219,21 +237,13 @@ const CONFIG = {
   minZoom: 0.5,
   maxZoom: 3.5,
   detailThreshold: 1.5,
-  clickThreshold: 10,
-  longPressDelay: 200,
-  dragStartDelay: 350,
+  
+  // 調整パラメータ
+  longPressDelay: 350, // ドラッグ開始までの長押し時間（誤操作防止のため少し長め）
   doubleTapDelay: 300,
-  storageKey: "horse_board_v5_idbase"
+  
+  storageKey: "horse_board_v7_touch"
 };
-
-// Fallback (for demo without json file)
-const FALLBACK_DATA = [
-  {id:"2002100816", name:"ディープインパクト", sire:"サンデーサイレンス"},
-  {id:"2012102013", name:"キタサンブラック", sire:"ブラックタイド"},
-  {id:"2017105376", name:"コントレイル", sire:"ディープインパクト"},
-  {id:"2019105219", name:"イクイノックス", sire:"キタサンブラック"},
-  {id:"2020103656", name:"リバティアイランド", sire:"ドゥラメンテ"}
-];
 
 const state = {
   columns: [], 
@@ -252,7 +262,12 @@ const app = {
     this.zoomVal = document.getElementById("zoomVal");
     
     await this.loadMasterData();
-    this.loadBoardState();
+    const hasLocalData = this.loadBoardState();
+
+    if (state.masterData.length > 0) {
+       this.syncMasterData(hasLocalData);
+    }
+    
     this.render();
     this.updateZoomStyle();
     this.attachEvents();
@@ -260,15 +275,11 @@ const app = {
 
   async loadMasterData() {
     try {
-      const res = await fetch('data/horses.json');
+      const res = await fetch(`data/horses.json?t=${Date.now()}`);
       if (res.ok) {
         state.masterData = await res.json();
-        console.log("Master Data:", state.masterData.length);
-      } else {
-        throw new Error("404");
       }
     } catch (e) {
-      console.log("Using Fallback Data");
       state.masterData = [];
     }
   },
@@ -286,51 +297,58 @@ const app = {
           loaded = true;
         }
       } catch(e) {}
-    } 
-    if (!loaded || state.columns.length === 0) {
-      this.initDefaultBoard();
     }
+    if (!loaded) {
+      state.columns = Array.from({length: CONFIG.columnCount}, () => []);
+    }
+    return loaded;
   },
 
-  initDefaultBoard() {
-    state.columns = Array.from({length: CONFIG.columnCount}, () => []);
-    const source = state.masterData.length > 0 ? state.masterData : FALLBACK_DATA;
-    
-    // 初期配置：適当に並べる
-    source.forEach((data, i) => {
-      const colIndex = i % CONFIG.columnCount;
-      state.columns[colIndex].push(this.buildCardData(data));
+  syncMasterData(hasLocalData) {
+    const existingIds = new Set();
+    state.columns.forEach(col => {
+      col.forEach(item => {
+        if (item.type === 'card' && item.id) existingIds.add(item.id);
+      });
     });
-    
-    // スペーサー
-    if(state.columns[0].length > 0) state.columns[0].splice(1,0, {uKey:generateUniqueKey(), type:"spacer"});
+
+    let addedCount = 0;
+    [...state.masterData].reverse().forEach(data => {
+      if (!existingIds.has(data.id)) {
+        const newItem = this.buildCardData(data);
+        newItem.isNew = true;
+        state.columns[0].unshift(newItem);
+        addedCount++;
+      }
+    });
+
+    if (addedCount > 0) this.save();
   },
 
-  // マスターデータ(JSON)から、アプリ内で使うカードオブジェクトを生成
   buildCardData(data) {
     return {
-      uKey: generateUniqueKey(), // 配置用のユニークキー
+      uKey: generateUniqueKey(),
       type: "card",
-      id: data.id,           // 血統登録番号
+      id: data.id,
       name: data.name,
       sire: data.sire,
-      detail: data.detail || {} // その他の詳細
+      detail: data.detail || {},
+      isNew: false
     };
   },
 
-  // URLとパスの計算ロジック
-  getImagePath(id) {
-    return `assets/images/${id}.jpeg`;
-  },
-  getNetkeibaUrl(id) {
-    return `https://db.netkeiba.com/horse/${id}`;
-  },
+  getImagePath(id) { return `assets/images/${id}.jpeg`; },
+  getNetkeibaUrl(id) { return `https://db.netkeiba.com/horse/${id}`; },
 
   save() {
-    localStorage.setItem(CONFIG.storageKey, JSON.stringify({
-      columns: state.columns,
+    const dataToSave = {
+      columns: state.columns.map(col => col.map(item => {
+        const { isNew, ...rest } = item; 
+        return rest;
+      })),
       zoom: state.zoom
-    }));
+    };
+    localStorage.setItem(CONFIG.storageKey, JSON.stringify(dataToSave));
   },
 
   render() {
@@ -350,6 +368,8 @@ const app = {
   createCell(item, colIndex, itemIndex) {
     const el = document.createElement("div");
     el.className = `cell ${item.type}`;
+    if (item.isNew) el.classList.add("new-entry");
+
     el.dataset.col = colIndex;
     el.dataset.idx = itemIndex;
     el.dataset.uKey = item.uKey;
@@ -357,8 +377,6 @@ const app = {
 
     if (item.type === "card") {
       const imgPath = this.getImagePath(item.id);
-      
-      // 画像ロードエラー時にプレースホルダーを出す
       el.innerHTML = `
         <img src="${imgPath}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
         <div class="placeholder-icon" style="display:none"><i class="fa-solid fa-horse-head"></i></div>
@@ -367,7 +385,6 @@ const app = {
           <div class="info-sub">父: ${item.sire}</div>
         </div>
       `;
-      // データ属性にIDを持たせておく（イベント用）
       el.dataset.horseId = item.id;
     }
     return el;
@@ -393,6 +410,7 @@ const app = {
   },
   
   addDummyCard() {
+    // 動作確認用
     if (state.masterData.length === 0) return;
     const randomData = state.masterData[Math.floor(Math.random()*state.masterData.length)];
     state.columns[0].unshift(this.buildCardData(randomData));
@@ -405,6 +423,7 @@ const app = {
     localStorage.removeItem(CONFIG.storageKey);
     location.reload();
   },
+  
   exportData() {
     const str = JSON.stringify({ columns: state.columns }, null, 2);
     const blob = new Blob([str], { type: "application/json" });
@@ -415,6 +434,7 @@ const app = {
     a.click();
     URL.revokeObjectURL(url);
   },
+  
   importData(input) {
     const file = input.files[0];
     if (!file) return;
@@ -434,62 +454,78 @@ const app = {
     input.value = "";
   },
 
+  // ------------------------------------------------
+  // Events (Smart Interaction)
+  // ------------------------------------------------
   attachEvents() {
     let pointerId = null;
     let startX=0, startY=0;
-    let tooltipTimer=null, dragTimer=null;
+    let dragTimer = null;
     let lastTapTime = 0;
     
     let isDragging = false;
+    let isMultiTouch = false; // ピンチ中かどうか
+    
     let dragEl = null; 
     let ghostEl = null;
     let sourceCol = -1;
     let sourceIdx = -1;
 
+    // キーボードイベント (PC用)
+    window.addEventListener("keydown", (e) => {
+      if (e.target.tagName === 'INPUT') return; // 入力中は無視
+      
+      // Ctrl (or Meta) + Key
+      if (e.key === "+" || e.key === "=") {
+        this.applyZoom(0.1);
+        e.preventDefault();
+      } else if (e.key === "-") {
+        this.applyZoom(-0.1);
+        e.preventDefault();
+      } else if (e.key === "0") {
+        state.zoom = 1.0;
+        this.updateZoomStyle();
+        this.save();
+        e.preventDefault();
+      }
+    });
+
     const clearTimers = () => {
-      if (tooltipTimer) clearTimeout(tooltipTimer);
       if (dragTimer) clearTimeout(dragTimer);
-      tooltipTimer=null; dragTimer=null;
+      dragTimer = null;
     };
-
-    const showTooltip = (el, x, y) => {
-      if (isDragging || el.dataset.type !== "card") return;
-      const c = state.columns[el.dataset.col][el.dataset.idx];
-      if (!c) return;
-      this.tooltip.innerHTML = `<strong>${c.name}</strong><span>父: ${c.sire}</span>`;
-      this.tooltip.style.left = x + "px";
-      this.tooltip.style.top = y + "px";
-      this.tooltip.classList.add("show");
-    };
-
-    const hideTooltip = () => this.tooltip.classList.remove("show");
 
     const showDetail = (el) => {
       el.classList.add("highlight");
       setTimeout(()=> el.classList.remove("highlight"), 300);
-      
       const horseId = el.dataset.horseId;
       if (horseId) {
-        const url = this.getNetkeibaUrl(horseId);
-        console.log("Double Tap: Open Detail", url);
-        // window.open(url, '_blank'); // 実装時はこれを有効化
+        window.open(this.getNetkeibaUrl(horseId), '_blank'); 
       }
     };
 
+    // ドラッグ開始（長押し確定時のみ呼ぶ）
     const startDrag = (el, x, y) => {
+      if (isMultiTouch) return; // ピンチ中ならキャンセル
+
       isDragging = true;
-      hideTooltip();
       dragEl = el;
+      
+      // ここで初めてPointer Captureを設定（スクロールを乗っ取る）
+      if (pointerId) dragEl.setPointerCapture(pointerId);
+      
       dragEl.classList.add("dragging");
       sourceCol = Number(dragEl.dataset.col);
       sourceIdx = Number(dragEl.dataset.idx);
       
+      // ゴースト作成
       ghostEl = el.cloneNode(true);
       ghostEl.className = "ghost";
       const info = ghostEl.querySelector(".info-area");
-      if(info) info.style.display = "block";
+      if(info) info.style.display = "block"; // ドラッグ中は詳細表示
       document.body.appendChild(ghostEl);
       updateGhost(x, y);
+      
       if (navigator.vibrate) navigator.vibrate(50);
     };
 
@@ -500,16 +536,25 @@ const app = {
       }
     };
 
+    // ------------------------------------
+    // Pointer Events (Main Logic)
+    // ------------------------------------
     this.board.addEventListener("pointerdown", (e) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0) return; // 左クリック以外無視
+      if (isMultiTouch) return;   // マルチタッチ中無視
+
       const cell = e.target.closest(".cell");
       if (!cell) return;
-      
+
       pointerId = e.pointerId;
-      cell.setPointerCapture(pointerId);
-      startX = e.clientX; startY = e.clientY;
-      cell.classList.add("pressed");
+      // 注意：ここでは setPointerCapture しない！
+      // 理由：スクロールやピンチズームを阻害しないため。
       
+      startX = e.clientX; 
+      startY = e.clientY;
+      cell.classList.add("pressed"); // 視覚フィードバック（押下）
+
+      // ダブルタップ判定
       const now = Date.now();
       if (now - lastTapTime < CONFIG.doubleTapDelay) {
         clearTimers();
@@ -519,26 +564,39 @@ const app = {
       }
       lastTapTime = now;
 
-      tooltipTimer = setTimeout(()=> showTooltip(cell, e.clientX, e.clientY), CONFIG.longPressDelay);
-      dragTimer = setTimeout(()=> startDrag(cell, e.clientX, e.clientY), CONFIG.dragStartDelay);
+      // 長押しタイマー開始
+      dragTimer = setTimeout(() => {
+        // マウスの場合は即ドラッグでも良いが、統一感のため長押し判定にするか、
+        // あるいはマウスなら移動開始でドラッグにするか。
+        // 今回は「誤操作防止」優先で長押し成立でドラッグ開始とする。
+        startDrag(cell, e.clientX, e.clientY);
+      }, CONFIG.longPressDelay);
     });
 
     this.board.addEventListener("pointermove", (e) => {
       if (e.pointerId !== pointerId) return;
-      const dist = Math.hypot(e.clientX - startX, e.clientY - startY);
-      
-      if (!isDragging && dist > CONFIG.clickThreshold) {
-        clearTimers();
-        hideTooltip();
-        if (!isDragging) startDrag(e.target.closest(".cell"), e.clientX, e.clientY);
-      }
+
+      // ドラッグ中ならゴースト移動＆並び替え
       if (isDragging) {
+        e.preventDefault(); // ドラッグ中のスクロール禁止
         updateGhost(e.clientX, e.clientY);
         handleDragMove(e.clientX, e.clientY);
+        return;
+      }
+
+      // ドラッグ未開始の場合
+      // 一定以上動いたら「スクロール意図」とみなして、長押しタイマーをキャンセル
+      const dist = Math.hypot(e.clientX - startX, e.clientY - startY);
+      if (dist > 5) { 
+        clearTimers();
+        // 視覚的なpressed状態も解除（ただのスクロールなので）
+        const cell = e.target.closest(".cell");
+        if (cell) cell.classList.remove("pressed");
       }
     });
 
     const handleDragMove = (x, y) => {
+      // (前回のロジックと同じ)
       const boardRect = this.board.getBoundingClientRect();
       const colWidth = boardRect.width / CONFIG.columnCount;
       let targetCol = Math.floor((x - boardRect.left) / colWidth);
@@ -588,51 +646,78 @@ const app = {
     };
 
     const endInteraction = (e) => {
-      if (e.pointerId !== pointerId) return;
+      if (pointerId && e.pointerId !== pointerId) return;
+      
       clearTimers();
-      hideTooltip();
+      
       const cell = e.target.closest(".cell");
       if (cell) cell.classList.remove("pressed");
+      
       if (isDragging) {
         isDragging = false;
         if (ghostEl) ghostEl.remove();
-        if (dragEl) dragEl.classList.remove("dragging");
+        if (dragEl) {
+          dragEl.classList.remove("dragging");
+          // キャプチャ解除（自動で外れるが念のため）
+          if (dragEl.releasePointerCapture && pointerId) {
+             try { dragEl.releasePointerCapture(pointerId); } catch(e){}
+          }
+        }
         this.save();
-        this.render();
+        this.render(); // 整合性確保のため再描画
       }
+      
       pointerId = null;
     };
 
     this.board.addEventListener("pointerup", endInteraction);
     this.board.addEventListener("pointercancel", endInteraction);
     
-    // Zoom Logic (Same as before)
-    let initialDist = 0;
-    let initialZoom = 1.0;
+    // ------------------------------------
+    // Touch Events (Multi-touch Check)
+    // ------------------------------------
     this.viewport.addEventListener("touchstart", (e) => {
-      if (e.touches.length === 2) {
-        initialDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-        initialZoom = state.zoom;
+      if (e.touches.length >= 2) {
+        isMultiTouch = true;
+        // 2本指以上触れたら、ドラッグ準備や実行中のドラッグを即キャンセル
+        clearTimers();
+        if (isDragging) {
+          // 強制終了
+          endInteraction({ pointerId: pointerId, target: dragEl || document.body });
+        }
+        // ここでは preventDefault しない（ネイティブのピンチズームを使わせるため）
       }
-    }, {passive:false});
-    this.viewport.addEventListener("touchmove", (e) => {
-      if (e.touches.length === 2) {
-        e.preventDefault();
-        const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-        state.zoom = Math.min(Math.max(initialZoom * (dist / initialDist), CONFIG.minZoom), CONFIG.maxZoom);
-        this.updateZoomStyle();
+    }, { passive: true });
+
+    this.viewport.addEventListener("touchend", (e) => {
+      if (e.touches.length < 2) {
+        isMultiTouch = false;
       }
-    }, {passive:false});
-    this.viewport.addEventListener("touchend", (e) => { if(e.touches.length < 2) this.save(); });
+      this.save(); // ズーム変更されているかもしれないので保存
+    });
+    
+    // ------------------------------------
+    // Wheel Zoom (PC)
+    // ------------------------------------
     this.viewport.addEventListener("wheel", (e) => {
+      // Ctrlキーがある場合のみズーム
       if (e.ctrlKey) {
         e.preventDefault();
-        state.zoom = Math.min(Math.max(state.zoom + e.deltaY * -0.01, CONFIG.minZoom), CONFIG.maxZoom);
-        this.updateZoomStyle();
-        if(this.wheelTimer) clearTimeout(this.wheelTimer);
-        this.wheelTimer = setTimeout(()=> this.save(), 500);
+        const delta = e.deltaY * -0.01;
+        this.applyZoom(delta);
       }
-    }, {passive:false});
+      // なければ通常スクロール
+    }, { passive: false });
+  },
+
+  applyZoom(delta) {
+    let newZoom = state.zoom + delta;
+    newZoom = Math.min(Math.max(newZoom, CONFIG.minZoom), CONFIG.maxZoom);
+    state.zoom = newZoom;
+    this.updateZoomStyle();
+    
+    if (this.zoomTimer) clearTimeout(this.zoomTimer);
+    this.zoomTimer = setTimeout(()=> this.save(), 500);
   }
 };
 
