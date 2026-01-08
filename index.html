@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (iPad Final Tuning)</title>
+<title>Horse Board (Static Drag & Drop)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -11,6 +11,7 @@
     --card-bg: #111;
     --text-color: #eee;
     --accent: #0078ff;
+    --target-color: #ffcc00; /* ドロップ先のハイライト色 */
     --zoom: 1.0;
     --gap: 8px;
   }
@@ -23,8 +24,8 @@
     overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
-    /* ピンチ操作はJSで制御するため、ブラウザ標準の操作と衝突しないよう調整 */
-    touch-action: pan-y; 
+    /* ブラウザ標準のスクロールとズームを全面的に許可 */
+    touch-action: pan-x pan-y pinch-zoom; 
   }
 
   /* ツールバー */
@@ -50,25 +51,24 @@
   .viewport {
     width: 100vw;
     height: calc(100vh - 48px);
-    overflow-y: scroll;
-    overflow-x: hidden;
+    /* 縦横スクロールを許可 */
+    overflow: auto; 
     position: relative;
     -webkit-overflow-scrolling: touch; 
-    touch-action: pan-y;
+    /* ここも標準操作を許可 */
+    touch-action: pan-x pan-y pinch-zoom;
   }
 
   /* ボード */
   .board {
     display: flex;
     flex-direction: row;
-    width: 100%;
+    /* widthはJSで制御 */
     min-height: 100%;
     box-sizing: border-box;
     transform-origin: 0 0;
     padding: 8px;
     gap: calc(var(--gap) * var(--zoom));
-    /* 重要: ズーム操作時のカクつきを抑える */
-    will-change: width, gap;
   }
 
   .column {
@@ -77,6 +77,9 @@
     flex-direction: column;
     gap: calc(var(--gap) * var(--zoom));
     min-width: 0; 
+    /* 空の列にもドロップできるように最小高さを確保 */
+    min-height: 100px;
+    padding-bottom: 50px; /* 下部の余白 */
   }
 
   /* セル */
@@ -84,7 +87,8 @@
     position: relative;
     border-radius: calc(6px * var(--zoom));
     overflow: hidden;
-    touch-action: pan-y;
+    /* セル上でもスクロール等は許可 */
+    touch-action: pan-x pan-y pinch-zoom;
     transition: transform 0.1s, opacity 0.1s;
     cursor: grab;
   }
@@ -135,29 +139,23 @@
     aspect-ratio: 4/1;
   }
 
+  /* ドラッグ中の元の場所（プレースホルダー） */
+  .cell.drag-placeholder {
+    opacity: 0.2;
+    filter: grayscale(100%);
+    border: 1px dashed #666;
+  }
+  
+  /* ドロップ先のハイライト */
+  .cell.drop-target {
+    outline: 3px solid var(--target-color);
+    outline-offset: 2px;
+    z-index: 10;
+  }
+  
   .cell.pressed {
-    outline: 2px solid var(--accent);
-    outline-offset: -2px;
     transform: scale(0.96);
     transition: transform 0.1s;
-  }
-  /* ドラッグ中は元の要素を半透明に */
-  .cell.dragging { opacity: 0.15; }
-  
-  .cell.highlight { animation: flash 0.3s ease-out; }
-  @keyframes flash {
-    0% { filter: brightness(1); }
-    50% { filter: brightness(2); background: #444; }
-    100% { filter: brightness(1); }
-  }
-  
-  .cell.new-entry {
-    animation: glowNew 2s infinite alternate;
-    box-shadow: 0 0 10px rgba(0, 120, 255, 0.5);
-  }
-  @keyframes glowNew {
-    from { border-color: #444; }
-    to { border-color: #0078ff; }
   }
 
   /* ツールチップ */
@@ -182,21 +180,28 @@
   .tooltip-popup strong { display: block; margin-bottom: 4px; font-size: 1.1em; }
   .tooltip-popup span { color: #ccc; font-size: 0.9em; }
 
-  /* ゴースト */
+  /* ゴースト（指についてくるやつ） */
   .ghost {
     position: fixed; z-index: 9999;
     width: 120px;
     border-radius: 6px; overflow: hidden;
-    box-shadow: 0 12px 32px rgba(0,0,0,0.6);
-    transform: translate(-50%, -50%) scale(1.1);
+    box-shadow: 0 16px 48px rgba(0,0,0,0.8);
+    transform: translate(-50%, -50%) scale(1.1) rotate(2deg); /* 少し傾けて持ち上げ感を演出 */
     pointer-events: none;
-    background: var(--card-bg); border: 1px solid #888; opacity: 0.95;
+    background: var(--card-bg); border: 1px solid #aaa; opacity: 0.95;
     will-change: left, top;
   }
   .ghost img { width: 100%; height: auto; display: block; }
   .ghost .info-area { padding: 4px; background: #222; display: block !important;}
-  .ghost .info-title { font-size: 11px; font-weight: bold; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
-  .ghost .info-sub { font-size: 9px; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+  .ghost .info-title { font-size: 11px; font-weight: bold; color: #fff;}
+  .ghost .info-sub { font-size: 9px; color: #aaa;}
+
+  /* 列自体のハイライト（空の列へのドロップ用） */
+  .column.drop-target-col {
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: inset 0 0 0 2px var(--target-color);
+    border-radius: 8px;
+  }
 
   #fileInput { display: none; }
 </style>
@@ -226,10 +231,11 @@
 
 <script>
 /**
- * Horse Board Logic (iPad Final Tuning)
- * - Auto Scroll: Enables vertical dragging on long lists.
- * - Zoom: Dedicated Touch Event handler to separate pinch from drag.
- * - Drag Stability: Stricter movement thresholds and timer resets.
+ * Horse Board Logic (Static Drag & Drop)
+ * - Removes realtime reordering (no more "billiard" effect).
+ * - "Pick up and Place" metaphor.
+ * - Supports horizontal scroll on trackpads.
+ * - Improved stability for iPad.
  */
 
 const CONFIG = {
@@ -238,14 +244,13 @@ const CONFIG = {
   maxZoom: 3.5,
   detailThreshold: 1.5,
   
-  longPressDelay: 350,
+  longPressDelay: 350, // しっかり長押しでドラッグ開始
   doubleTapDelay: 300,
   
-  // オートスクロール設定
-  autoScrollZone: 80, // 上下端の反応エリア(px)
-  autoScrollSpeed: 10, // スクロール速度
+  autoScrollZone: 80, 
+  autoScrollSpeed: 10,
   
-  storageKey: "horse_board_v8_final" 
+  storageKey: "horse_board_v9_static" 
 };
 
 const state = {
@@ -474,7 +479,7 @@ const app = {
   },
 
   // ------------------------------------------------
-  // Events
+  // Interaction Logic (Static Drag / Drop)
   // ------------------------------------------------
   attachEvents() {
     let pointerId = null;
@@ -490,7 +495,9 @@ const app = {
     let sourceCol = -1;
     let sourceIdx = -1;
     
-    let rafId = null;
+    // ドロップターゲット（ハイライト用）
+    let currentDropTargetEl = null;
+    
     let autoScrollRafId = null;
 
     // --- PC Zoom ---
@@ -513,12 +520,9 @@ const app = {
       if (horseId) window.open(this.getNetkeibaUrl(horseId), '_blank'); 
     };
 
-    // --- Auto Scroll Logic ---
+    // --- Auto Scroll ---
     const stopAutoScroll = () => {
-      if (autoScrollRafId) {
-        cancelAnimationFrame(autoScrollRafId);
-        autoScrollRafId = null;
-      }
+      if (autoScrollRafId) { cancelAnimationFrame(autoScrollRafId); autoScrollRafId = null; }
     };
 
     const checkAutoScroll = (y) => {
@@ -531,21 +535,53 @@ const app = {
 
       let scrollSpeed = 0;
       if (relativeY < CONFIG.autoScrollZone) {
-        // Scroll Up
         scrollSpeed = -CONFIG.autoScrollSpeed * (1 - relativeY / CONFIG.autoScrollZone);
       } else if (relativeY > vHeight - CONFIG.autoScrollZone) {
-        // Scroll Down
         scrollSpeed = CONFIG.autoScrollSpeed * (1 - (vHeight - relativeY) / CONFIG.autoScrollZone);
       }
 
       if (scrollSpeed !== 0) {
         const loop = () => {
           this.viewport.scrollTop += scrollSpeed;
-          // ゴーストも追従させる必要があるが、ghostはfixedなのでそのままでOK
-          // ただし、ドロップ判定の再計算が必要かもしれないが、moveイベントで処理されるのでOK
           autoScrollRafId = requestAnimationFrame(loop);
         };
         loop();
+      }
+    };
+
+    // --- Highlight Management ---
+    const clearDropHighlight = () => {
+      if (currentDropTargetEl) {
+        currentDropTargetEl.classList.remove("drop-target");
+        currentDropTargetEl = null;
+      }
+      document.querySelectorAll('.drop-target-col').forEach(el => el.classList.remove('drop-target-col'));
+    };
+
+    const updateDropHighlight = (x, y) => {
+      clearDropHighlight();
+      
+      // ゴーストを非表示にして下の要素を取得
+      if (ghostEl) ghostEl.style.display = 'none';
+      let target = document.elementFromPoint(x, y);
+      if (ghostEl) ghostEl.style.display = 'block';
+
+      if (!target) return;
+
+      const cell = target.closest('.cell');
+      if (cell && this.board.contains(cell)) {
+        // 自分自身でなければハイライト
+        if (cell !== dragEl) {
+          cell.classList.add("drop-target");
+          currentDropTargetEl = cell;
+        }
+      } else {
+        // 空の列へのドロップ判定
+        const col = target.closest('.column');
+        if (col && this.board.contains(col)) {
+           // 列の中にセルが無い、あるいは下の方
+           col.classList.add("drop-target-col");
+        }
       }
     };
 
@@ -555,16 +591,21 @@ const app = {
 
       isDragging = true;
       dragEl = el;
+      // Capture
       if (pointerId && dragEl.setPointerCapture) {
         try { dragEl.setPointerCapture(pointerId); } catch(e){}
       }
       
-      dragEl.classList.add("dragging");
+      // プレースホルダー化（元の場所を維持）
+      dragEl.classList.add("drag-placeholder");
+      
       sourceCol = Number(dragEl.dataset.col);
       sourceIdx = Number(dragEl.dataset.idx);
       
+      // ゴースト作成
       ghostEl = el.cloneNode(true);
       ghostEl.className = "ghost";
+      ghostEl.classList.remove("drag-placeholder", "pressed"); // ゴーストはクリーンに
       const info = ghostEl.querySelector(".info-area");
       if(info) info.style.display = "block";
       document.body.appendChild(ghostEl);
@@ -611,85 +652,78 @@ const app = {
       if (e.pointerId !== pointerId) return;
 
       if (isDragging) {
-        e.preventDefault(); 
+        e.preventDefault(); // スクロール阻止
         
-        // オートスクロール判定
         checkAutoScroll(e.clientY);
-
-        if (!rafId) {
-          rafId = requestAnimationFrame(() => {
-            updateGhost(e.clientX, e.clientY);
-            handleDragMove(e.clientX, e.clientY);
-            rafId = null;
-          });
-        }
+        updateGhost(e.clientX, e.clientY);
+        
+        // ハイライト更新（計算負荷軽減のためrAFに入れるのもアリだが、静的移動なので現状でもOK）
+        updateDropHighlight(e.clientX, e.clientY);
         return;
       }
 
-      // 縦移動が不安定な原因：少しのズレでキャンセルされていたため、遊びを大きくする
+      // スクロール判定
       const dx = Math.abs(e.clientX - startX);
       const dy = Math.abs(e.clientY - startY);
-      
-      // 横移動はドラッグ意図が強いが、縦はスクロール意図が強い
-      // 縦に大きく動いたらスクロールとみなす
-      if (dy > 15 || dx > 20) { 
+      if (dx > 10 || dy > 10) { 
         clearTimers();
         const cell = e.target.closest(".cell");
         if (cell) cell.classList.remove("pressed");
       }
     });
 
-    const handleDragMove = (x, y) => {
-      // 座標から列を計算
-      const boardRect = this.board.getBoundingClientRect();
-      const colWidth = boardRect.width / CONFIG.columnCount;
-      let targetCol = Math.floor((x - boardRect.left) / colWidth);
-      if (targetCol < 0) targetCol = 0;
-      if (targetCol >= CONFIG.columnCount) targetCol = CONFIG.columnCount - 1;
+    // --- Drop Logic (Execute Move) ---
+    const executeDrop = (x, y) => {
+      clearDropHighlight();
+      
+      // ドロップ先の特定
+      if (ghostEl) ghostEl.style.display = 'none';
+      let target = document.elementFromPoint(x, y);
+      if (ghostEl) ghostEl.style.display = 'block'; // 一瞬なので不要かもだが
 
-      const colEl = this.board.children[targetCol];
-      if (!colEl) return;
+      // ターゲット情報の算出
+      let targetCol = -1;
+      let targetIdx = -1;
       
-      const cells = Array.from(colEl.children);
-      let targetIdx = cells.length;
-      
-      // セルごとの判定
-      for (let i = 0; i < cells.length; i++) {
-        const rect = cells[i].getBoundingClientRect();
-        // カードの中心より上なら、その位置に挿入
-        if (y < rect.top + rect.height / 2) {
-          targetIdx = i;
-          break;
+      if (target) {
+        const targetCell = target.closest('.cell');
+        const targetColumn = target.closest('.column');
+
+        if (targetCell && this.board.contains(targetCell)) {
+           targetCol = Number(targetCell.dataset.col);
+           
+           // セルの上半分か下半分かで挿入位置を変えるのがベストだが
+           // 今回は「重なった相手の位置」に挿入（相手は後ろへ）とする
+           targetIdx = Number(targetCell.dataset.idx);
+           
+        } else if (targetColumn && this.board.contains(targetColumn)) {
+           // 空列、または列の末尾へのドロップ
+           targetCol = Number(targetColumn.dataset.colIndex);
+           targetIdx = state.columns[targetCol].length; // 末尾
         }
       }
 
-      if (targetCol === Number(dragEl.dataset.col) && 
-         (targetIdx === Number(dragEl.dataset.idx) || targetIdx === Number(dragEl.dataset.idx) + 1)) return;
-      
+      // ドロップが無効、または元の位置なら何もしない
+      if (targetCol === -1 || (targetCol === sourceCol && targetIdx === sourceIdx)) {
+        return;
+      }
+
+      // データ移動実行
       const item = state.columns[sourceCol][sourceIdx];
       state.columns[sourceCol].splice(sourceIdx, 1);
       
+      // 同一列で、下へ移動する場合のインデックス補正
+      // 削除によってインデックスがずれるため
       let adjust = 0;
-      if (sourceCol === targetCol && sourceIdx < targetIdx) adjust = -1;
-      const finalTargetIdx = targetIdx + adjust;
+      if (sourceCol === targetCol && sourceIdx < targetIdx) {
+        adjust = -1;
+      }
+      const finalTargetIdx = Math.max(0, targetIdx + adjust);
       
       state.columns[targetCol].splice(finalTargetIdx, 0, item);
       
-      if (cells.length === 0 || targetIdx >= cells.length) {
-        colEl.appendChild(dragEl);
-      } else {
-        colEl.insertBefore(dragEl, cells[targetIdx]);
-      }
-      
-      const updateDataset = (cIdx) => {
-        Array.from(this.board.children[cIdx].children).forEach((ch, idx) => {
-          ch.dataset.col = cIdx; ch.dataset.idx = idx;
-        });
-      };
-      updateDataset(sourceCol);
-      if (sourceCol !== targetCol) updateDataset(targetCol);
-      sourceCol = targetCol;
-      sourceIdx = finalTargetIdx;
+      this.save();
+      this.render(); // 全再描画（これで位置が確定する）
     };
 
     const endInteraction = (e) => {
@@ -697,22 +731,22 @@ const app = {
       
       clearTimers();
       stopAutoScroll();
-      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
 
       const cell = e.target.closest(".cell");
       if (cell) cell.classList.remove("pressed");
       
       if (isDragging) {
+        // ドロップ処理
+        executeDrop(e.clientX, e.clientY);
+
         isDragging = false;
         if (ghostEl) ghostEl.remove();
         if (dragEl) {
-          dragEl.classList.remove("dragging");
+          dragEl.classList.remove("drag-placeholder");
           if (dragEl.releasePointerCapture && pointerId) {
              try { dragEl.releasePointerCapture(pointerId); } catch(e){}
           }
         }
-        this.save();
-        this.render(); 
       }
       pointerId = null;
     };
@@ -720,37 +754,34 @@ const app = {
     this.board.addEventListener("pointerup", endInteraction);
     this.board.addEventListener("pointercancel", endInteraction);
     
-    // --- Touch Events (Isolated for Pinch Zoom) ---
-    // ここでドラッグとは完全に分離したロジックにする
+    // --- Touch (Pinch Zoom) ---
     let initialDist = 0;
     let initialZoom = 1.0;
 
     this.viewport.addEventListener("touchstart", (e) => {
       if (e.touches.length >= 2) {
         isMultiTouch = true;
-        
-        // 既存のドラッグ処理を強制リセット
         if (isDragging) {
-          endInteraction({ pointerId: pointerId, target: dragEl || document.body });
+           // ピンチ開始したらドラッグはキャンセル（元の位置に戻す）
+           isDragging = false;
+           if(ghostEl) ghostEl.remove();
+           if(dragEl) dragEl.classList.remove("drag-placeholder");
+           stopAutoScroll();
+           clearDropHighlight();
         }
         clearTimers();
         
-        // ズーム初期値計算
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         initialDist = Math.hypot(dx, dy);
         initialZoom = state.zoom;
-        
-        // ネイティブの動作を抑止しないと、ページ全体がズームしたり選択されたりする可能性がある
-        // しかし、独自ズームを実装するなら preventDefault() が必要
         e.preventDefault(); 
       }
     }, { passive: false });
 
     this.viewport.addEventListener("touchmove", (e) => {
       if (isMultiTouch && e.touches.length >= 2) {
-        e.preventDefault(); // 画面全体のスクロールやネイティブズームを防ぐ
-        
+        e.preventDefault();
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         const dist = Math.hypot(dx, dy);
@@ -758,9 +789,6 @@ const app = {
         if (initialDist > 0) {
            const ratio = dist / initialDist;
            const newZoom = Math.min(Math.max(initialZoom * ratio, CONFIG.minZoom), CONFIG.maxZoom);
-           
-           // パフォーマンスのため、requestAnimationFrameを使う手もあるが
-           // ズームは即時反応が気持ちいいので直接セット
            state.zoom = newZoom;
            this.updateZoomStyle();
         }
@@ -770,7 +798,6 @@ const app = {
     this.viewport.addEventListener("touchend", (e) => {
       if (e.touches.length < 2) {
         isMultiTouch = false;
-        // 指が離れたら保存
         this.save();
       }
     });
