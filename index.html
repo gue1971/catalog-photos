@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Horse Board (ID Based)</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  :root {
+    --bg: #222;
+    --card-bg: #111;
+    --text-color: #eee;
+    --accent: #0078ff;
+    --zoom: 1.0;
+    --gap: 8px;
+  }
+
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Yu Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--text-color);
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+
+  /* ツールバー */
+  .toolbar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: 48px;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(10px);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px; z-index: 10000;
+    border-top: 1px solid rgba(255,255,255,0.1);
+  }
+  .toolbar-group { display: flex; gap: 16px; align-items: center; }
+  .btn {
+    background: none; border: 1px solid rgba(255,255,255,0.3);
+    color: #ccc; border-radius: 4px; padding: 4px 12px;
+    font-size: 12px; cursor: pointer;
+  }
+  .btn:active { background: rgba(255,255,255,0.2); }
+  .zoom-label { font-size: 12px; width: 40px; text-align: center; }
+
+  /* ビューポート */
+  .viewport {
+    width: 100vw;
+    height: calc(100vh - 48px);
+    overflow-y: scroll;
+    overflow-x: hidden;
+    position: relative;
+    -webkit-overflow-scrolling: touch; 
+  }
+
+  /* ボード */
+  .board {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    min-height: 100%;
+    box-sizing: border-box;
+    transform-origin: 0 0;
+    padding: 8px;
+    gap: calc(var(--gap) * var(--zoom));
+  }
+
+  .column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--gap) * var(--zoom));
+    min-width: 0; 
+  }
+
+  /* セル */
+  .cell {
+    position: relative;
+    border-radius: calc(6px * var(--zoom));
+    overflow: hidden;
+    touch-action: none;
+    transition: transform 0.1s, opacity 0.1s;
+  }
+
+  .cell.card {
+    background: var(--card-bg);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    border: 1px solid #444;
+  }
+  
+  .cell.card img {
+    width: 100%; height: auto;
+    display: block; pointer-events: none;
+    min-height: 40px; object-fit: contain;
+  }
+  
+  .cell.card .placeholder-icon {
+    width: 100%; aspect-ratio: 4/3;
+    background: #000;
+    display: flex; align-items: center; justify-content: center;
+    color: #555;
+    font-size: calc(24px * var(--zoom));
+  }
+
+  /* テキスト情報（極小） */
+  .cell.card .info-area {
+    padding: calc(2px * var(--zoom)) calc(3px * var(--zoom));
+    background: var(--card-bg);
+    display: none;
+  }
+  .board.view-detail .cell.card .info-area { display: block; }
+
+  .info-title { 
+    font-weight: bold; font-size: calc(9px * var(--zoom)); 
+    margin-bottom: 0px; color: #eee; line-height: 1.1;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .info-sub { 
+    font-size: calc(7.5px * var(--zoom)); color: #999;
+    line-height: 1.1;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .cell.spacer {
+    background: rgba(255,255,255,0.05);
+    border: 1px dashed rgba(255,255,255,0.15);
+    aspect-ratio: 4/1;
+  }
+
+  .cell.pressed {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+    transform: scale(0.98);
+  }
+  .cell.dragging { opacity: 0.1; }
+  
+  .cell.highlight { animation: flash 0.3s ease-out; }
+  @keyframes flash {
+    0% { filter: brightness(1); }
+    50% { filter: brightness(2); background: #444; }
+    100% { filter: brightness(1); }
+  }
+
+  /* ツールチップ */
+  .tooltip-popup {
+    position: fixed;
+    background: rgba(0, 0, 0, 0.95);
+    color: #fff;
+    border: 1px solid #666;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 14px;
+    pointer-events: none;
+    z-index: 9999;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    opacity: 0;
+    transform: translate(-50%, -120%);
+    transition: opacity 0.15s;
+    white-space: nowrap;
+    max-width: 300px;
+  }
+  .tooltip-popup.show { opacity: 1; }
+  .tooltip-popup strong { display: block; margin-bottom: 4px; font-size: 1.1em; }
+  .tooltip-popup span { color: #ccc; font-size: 0.9em; }
+
+  /* ゴースト */
+  .ghost {
+    position: fixed; z-index: 9999;
+    width: 120px;
+    border-radius: 6px; overflow: hidden;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.6);
+    transform: translate(-50%, -50%) scale(1.05);
+    pointer-events: none;
+    background: var(--card-bg); border: 1px solid #777; opacity: 0.9;
+  }
+  .ghost img { width: 100%; height: auto; display: block; }
+  .ghost .info-area { padding: 4px; background: #222; }
+  .ghost .info-title { font-size: 11px; font-weight: bold; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+  .ghost .info-sub { font-size: 9px; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+
+  #fileInput { display: none; }
+</style>
+</head>
+<body>
+
+<div class="viewport" id="viewport">
+  <div id="board" class="board"></div>
+</div>
+
+<div id="tooltip" class="tooltip-popup"></div>
+
+<div class="toolbar">
+  <div class="toolbar-group">
+    <button class="btn" onclick="app.addSpacer()"><i class="fa-solid fa-plus"></i> 空白</button>
+    <button class="btn" onclick="app.addDummyCard()"><i class="fa-solid fa-horse"></i> 馬追加</button>
+  </div>
+  <div class="toolbar-group">
+    <div class="zoom-label" id="zoomVal">100%</div>
+    <button class="btn" onclick="app.resetData()"><i class="fa-solid fa-trash"></i> Reset</button>
+    <button class="btn" onclick="app.exportData()"><i class="fa-solid fa-download"></i> JSON</button>
+    <button class="btn" onclick="document.getElementById('fileInput').click()"><i class="fa-solid fa-upload"></i></button>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept=".json" onchange="app.importData(this)">
+
+<script>
+/**
+ * Horse Board Logic (ID & Computed Path)
+ * - Master Data: data/horses.json
+ * - Image Path: assets/images/{id}.jpeg
+ * - Netkeiba: https://db.netkeiba.com/horse/{id}
+ */
+
+const CONFIG = {
+  columnCount: 12,
+  minZoom: 0.5,
+  maxZoom: 3.5,
+  detailThreshold: 1.5,
+  clickThreshold: 10,
+  longPressDelay: 200,
+  dragStartDelay: 350,
+  doubleTapDelay: 300,
+  storageKey: "horse_board_v5_idbase"
+};
+
+// Fallback (for demo without json file)
+const FALLBACK_DATA = [
+  {id:"2002100816", name:"ディープインパクト", sire:"サンデーサイレンス"},
+  {id:"2012102013", name:"キタサンブラック", sire:"ブラックタイド"},
+  {id:"2017105376", name:"コントレイル", sire:"ディープインパクト"},
+  {id:"2019105219", name:"イクイノックス", sire:"キタサンブラック"},
+  {id:"2020103656", name:"リバティアイランド", sire:"ドゥラメンテ"}
+];
+
+const state = {
+  columns: [], 
+  zoom: 1.0,
+  nextId: 1,
+  masterData: [] 
+};
+
+function generateUniqueKey() { return `obj_${Date.now()}_${state.nextId++}`; }
+
+const app = {
+  async init() {
+    this.board = document.getElementById("board");
+    this.viewport = document.getElementById("viewport");
+    this.tooltip = document.getElementById("tooltip");
+    this.zoomVal = document.getElementById("zoomVal");
+    
+    await this.loadMasterData();
+    this.loadBoardState();
+    this.render();
+    this.updateZoomStyle();
+    this.attachEvents();
+  },
+
+  async loadMasterData() {
+    try {
+      const res = await fetch('data/horses.json');
+      if (res.ok) {
+        state.masterData = await res.json();
+        console.log("Master Data:", state.masterData.length);
+      } else {
+        throw new Error("404");
+      }
+    } catch (e) {
+      console.log("Using Fallback Data");
+      state.masterData = [];
+    }
+  },
+
+  loadBoardState() {
+    const raw = localStorage.getItem(CONFIG.storageKey);
+    let loaded = false;
+    if (raw) {
+      try {
+        const saved = JSON.parse(raw);
+        if (saved.columns && Array.isArray(saved.columns)) {
+          state.columns = saved.columns;
+          state.zoom = saved.zoom || 1.0;
+          while(state.columns.length < CONFIG.columnCount) state.columns.push([]);
+          loaded = true;
+        }
+      } catch(e) {}
+    } 
+    if (!loaded || state.columns.length === 0) {
+      this.initDefaultBoard();
+    }
+  },
+
+  initDefaultBoard() {
+    state.columns = Array.from({length: CONFIG.columnCount}, () => []);
+    const source = state.masterData.length > 0 ? state.masterData : FALLBACK_DATA;
+    
+    // 初期配置：適当に並べる
+    source.forEach((data, i) => {
+      const colIndex = i % CONFIG.columnCount;
+      state.columns[colIndex].push(this.buildCardData(data));
+    });
+    
+    // スペーサー
+    if(state.columns[0].length > 0) state.columns[0].splice(1,0, {uKey:generateUniqueKey(), type:"spacer"});
+  },
+
+  // マスターデータ(JSON)から、アプリ内で使うカードオブジェクトを生成
+  buildCardData(data) {
+    return {
+      uKey: generateUniqueKey(), // 配置用のユニークキー
+      type: "card",
+      id: data.id,           // 血統登録番号
+      name: data.name,
+      sire: data.sire,
+      detail: data.detail || {} // その他の詳細
+    };
+  },
+
+  // URLとパスの計算ロジック
+  getImagePath(id) {
+    return `assets/images/${id}.jpeg`;
+  },
+  getNetkeibaUrl(id) {
+    return `https://db.netkeiba.com/horse/${id}`;
+  },
+
+  save() {
+    localStorage.setItem(CONFIG.storageKey, JSON.stringify({
+      columns: state.columns,
+      zoom: state.zoom
+    }));
+  },
+
+  render() {
+    this.board.innerHTML = "";
+    state.columns.forEach((items, colIndex) => {
+      const colEl = document.createElement("div");
+      colEl.className = "column";
+      colEl.dataset.colIndex = colIndex;
+      items.forEach((item, itemIndex) => {
+        const cell = this.createCell(item, colIndex, itemIndex);
+        colEl.appendChild(cell);
+      });
+      this.board.appendChild(colEl);
+    });
+  },
+
+  createCell(item, colIndex, itemIndex) {
+    const el = document.createElement("div");
+    el.className = `cell ${item.type}`;
+    el.dataset.col = colIndex;
+    el.dataset.idx = itemIndex;
+    el.dataset.uKey = item.uKey;
+    el.dataset.type = item.type;
+
+    if (item.type === "card") {
+      const imgPath = this.getImagePath(item.id);
+      
+      // 画像ロードエラー時にプレースホルダーを出す
+      el.innerHTML = `
+        <img src="${imgPath}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+        <div class="placeholder-icon" style="display:none"><i class="fa-solid fa-horse-head"></i></div>
+        <div class="info-area">
+          <div class="info-title">${item.name}</div>
+          <div class="info-sub">父: ${item.sire}</div>
+        </div>
+      `;
+      // データ属性にIDを持たせておく（イベント用）
+      el.dataset.horseId = item.id;
+    }
+    return el;
+  },
+
+  updateZoomStyle() {
+    const widthPercent = 100 * state.zoom;
+    this.board.style.width = `${widthPercent}%`;
+    document.documentElement.style.setProperty('--zoom', state.zoom);
+    this.zoomVal.textContent = Math.round(state.zoom * 100) + "%";
+    
+    if (state.zoom > CONFIG.detailThreshold) {
+      this.board.classList.add("view-detail");
+    } else {
+      this.board.classList.remove("view-detail");
+    }
+  },
+
+  addSpacer() {
+    state.columns[0].unshift({ uKey: generateUniqueKey(), type: "spacer" });
+    this.render();
+    this.save();
+  },
+  
+  addDummyCard() {
+    if (state.masterData.length === 0) return;
+    const randomData = state.masterData[Math.floor(Math.random()*state.masterData.length)];
+    state.columns[0].unshift(this.buildCardData(randomData));
+    this.render();
+    this.save();
+  },
+
+  resetData() {
+    if(!confirm("配置をリセットしてマスターデータから再生成しますか？")) return;
+    localStorage.removeItem(CONFIG.storageKey);
+    location.reload();
+  },
+  exportData() {
+    const str = JSON.stringify({ columns: state.columns }, null, 2);
+    const blob = new Blob([str], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `horse_board.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+  importData(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const json = JSON.parse(e.target.result);
+        if (json.columns) {
+          state.columns = json.columns;
+          this.render();
+          this.save();
+          alert("インポート完了");
+        }
+      } catch(err) { alert("エラー"); }
+    };
+    reader.readAsText(file);
+    input.value = "";
+  },
+
+  attachEvents() {
+    let pointerId = null;
+    let startX=0, startY=0;
+    let tooltipTimer=null, dragTimer=null;
+    let lastTapTime = 0;
+    
+    let isDragging = false;
+    let dragEl = null; 
+    let ghostEl = null;
+    let sourceCol = -1;
+    let sourceIdx = -1;
+
+    const clearTimers = () => {
+      if (tooltipTimer) clearTimeout(tooltipTimer);
+      if (dragTimer) clearTimeout(dragTimer);
+      tooltipTimer=null; dragTimer=null;
+    };
+
+    const showTooltip = (el, x, y) => {
+      if (isDragging || el.dataset.type !== "card") return;
+      const c = state.columns[el.dataset.col][el.dataset.idx];
+      if (!c) return;
+      this.tooltip.innerHTML = `<strong>${c.name}</strong><span>父: ${c.sire}</span>`;
+      this.tooltip.style.left = x + "px";
+      this.tooltip.style.top = y + "px";
+      this.tooltip.classList.add("show");
+    };
+
+    const hideTooltip = () => this.tooltip.classList.remove("show");
+
+    const showDetail = (el) => {
+      el.classList.add("highlight");
+      setTimeout(()=> el.classList.remove("highlight"), 300);
+      
+      const horseId = el.dataset.horseId;
+      if (horseId) {
+        const url = this.getNetkeibaUrl(horseId);
+        console.log("Double Tap: Open Detail", url);
+        // window.open(url, '_blank'); // 実装時はこれを有効化
+      }
+    };
+
+    const startDrag = (el, x, y) => {
+      isDragging = true;
+      hideTooltip();
+      dragEl = el;
+      dragEl.classList.add("dragging");
+      sourceCol = Number(dragEl.dataset.col);
+      sourceIdx = Number(dragEl.dataset.idx);
+      
+      ghostEl = el.cloneNode(true);
+      ghostEl.className = "ghost";
+      const info = ghostEl.querySelector(".info-area");
+      if(info) info.style.display = "block";
+      document.body.appendChild(ghostEl);
+      updateGhost(x, y);
+      if (navigator.vibrate) navigator.vibrate(50);
+    };
+
+    const updateGhost = (x, y) => {
+      if (ghostEl) {
+        ghostEl.style.left = x + "px";
+        ghostEl.style.top = y + "px";
+      }
+    };
+
+    this.board.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      const cell = e.target.closest(".cell");
+      if (!cell) return;
+      
+      pointerId = e.pointerId;
+      cell.setPointerCapture(pointerId);
+      startX = e.clientX; startY = e.clientY;
+      cell.classList.add("pressed");
+      
+      const now = Date.now();
+      if (now - lastTapTime < CONFIG.doubleTapDelay) {
+        clearTimers();
+        showDetail(cell);
+        lastTapTime = 0;
+        return;
+      }
+      lastTapTime = now;
+
+      tooltipTimer = setTimeout(()=> showTooltip(cell, e.clientX, e.clientY), CONFIG.longPressDelay);
+      dragTimer = setTimeout(()=> startDrag(cell, e.clientX, e.clientY), CONFIG.dragStartDelay);
+    });
+
+    this.board.addEventListener("pointermove", (e) => {
+      if (e.pointerId !== pointerId) return;
+      const dist = Math.hypot(e.clientX - startX, e.clientY - startY);
+      
+      if (!isDragging && dist > CONFIG.clickThreshold) {
+        clearTimers();
+        hideTooltip();
+        if (!isDragging) startDrag(e.target.closest(".cell"), e.clientX, e.clientY);
+      }
+      if (isDragging) {
+        updateGhost(e.clientX, e.clientY);
+        handleDragMove(e.clientX, e.clientY);
+      }
+    });
+
+    const handleDragMove = (x, y) => {
+      const boardRect = this.board.getBoundingClientRect();
+      const colWidth = boardRect.width / CONFIG.columnCount;
+      let targetCol = Math.floor((x - boardRect.left) / colWidth);
+      if (targetCol < 0) targetCol = 0;
+      if (targetCol >= CONFIG.columnCount) targetCol = CONFIG.columnCount - 1;
+
+      const colEl = this.board.children[targetCol];
+      if (!colEl) return;
+      
+      const cells = Array.from(colEl.children);
+      let targetIdx = cells.length;
+      for (let i = 0; i < cells.length; i++) {
+        const rect = cells[i].getBoundingClientRect();
+        if (y < rect.top + rect.height / 2) {
+          targetIdx = i;
+          break;
+        }
+      }
+
+      if (targetCol === Number(dragEl.dataset.col) && 
+         (targetIdx === Number(dragEl.dataset.idx) || targetIdx === Number(dragEl.dataset.idx) + 1)) return;
+      
+      const item = state.columns[sourceCol][sourceIdx];
+      state.columns[sourceCol].splice(sourceIdx, 1);
+      
+      let adjust = 0;
+      if (sourceCol === targetCol && sourceIdx < targetIdx) adjust = -1;
+      const finalTargetIdx = targetIdx + adjust;
+      
+      state.columns[targetCol].splice(finalTargetIdx, 0, item);
+      
+      if (cells.length === 0 || targetIdx >= cells.length) {
+        colEl.appendChild(dragEl);
+      } else {
+        colEl.insertBefore(dragEl, cells[targetIdx]);
+      }
+      
+      const updateDataset = (cIdx) => {
+        Array.from(this.board.children[cIdx].children).forEach((ch, idx) => {
+          ch.dataset.col = cIdx; ch.dataset.idx = idx;
+        });
+      };
+      updateDataset(sourceCol);
+      if (sourceCol !== targetCol) updateDataset(targetCol);
+      sourceCol = targetCol;
+      sourceIdx = finalTargetIdx;
+    };
+
+    const endInteraction = (e) => {
+      if (e.pointerId !== pointerId) return;
+      clearTimers();
+      hideTooltip();
+      const cell = e.target.closest(".cell");
+      if (cell) cell.classList.remove("pressed");
+      if (isDragging) {
+        isDragging = false;
+        if (ghostEl) ghostEl.remove();
+        if (dragEl) dragEl.classList.remove("dragging");
+        this.save();
+        this.render();
+      }
+      pointerId = null;
+    };
+
+    this.board.addEventListener("pointerup", endInteraction);
+    this.board.addEventListener("pointercancel", endInteraction);
+    
+    // Zoom Logic (Same as before)
+    let initialDist = 0;
+    let initialZoom = 1.0;
+    this.viewport.addEventListener("touchstart", (e) => {
+      if (e.touches.length === 2) {
+        initialDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        initialZoom = state.zoom;
+      }
+    }, {passive:false});
+    this.viewport.addEventListener("touchmove", (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        state.zoom = Math.min(Math.max(initialZoom * (dist / initialDist), CONFIG.minZoom), CONFIG.maxZoom);
+        this.updateZoomStyle();
+      }
+    }, {passive:false});
+    this.viewport.addEventListener("touchend", (e) => { if(e.touches.length < 2) this.save(); });
+    this.viewport.addEventListener("wheel", (e) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        state.zoom = Math.min(Math.max(state.zoom + e.deltaY * -0.01, CONFIG.minZoom), CONFIG.maxZoom);
+        this.updateZoomStyle();
+        if(this.wheelTimer) clearTimeout(this.wheelTimer);
+        this.wheelTimer = setTimeout(()=> this.save(), 500);
+      }
+    }, {passive:false});
+  }
+};
+
+app.init();
+</script>
+</body>
+</html>
