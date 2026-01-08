@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (Smart Touch)</title>
+<title>Horse Board (Auto Fix)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -227,9 +227,10 @@
 
 <script>
 /**
- * Horse Board Logic (Smart Touch & PC Support)
+ * Horse Board Logic (Smart Touch & PC Support & Auto Fix)
  * - Touch: Long press to drag. Pinch to zoom (native-like). Scroll enabled.
  * - PC: Ctrl+Wheel to zoom. Keyboard (+/-) to zoom.
+ * - Auto Fix: Balances columns if they are extremely uneven (e.g. all in col 0).
  */
 
 const CONFIG = {
@@ -242,7 +243,7 @@ const CONFIG = {
   longPressDelay: 350, // ドラッグ開始までの長押し時間（誤操作防止のため少し長め）
   doubleTapDelay: 300,
   
-  storageKey: "horse_board_v7_touch"
+  storageKey: "horse_board_v7_touch" // キーは維持してデータを引き継ぎ、補正する
 };
 
 const state = {
@@ -268,6 +269,9 @@ const app = {
        this.syncMasterData(hasLocalData);
     }
     
+    // レイアウト崩れ（縦一列問題）の自動修復
+    this.fixLayoutImbalance();
+
     this.render();
     this.updateZoomStyle();
     this.attachEvents();
@@ -313,16 +317,63 @@ const app = {
     });
 
     let addedCount = 0;
+    const newItems = [];
+    
+    // 追加候補リスト作成
     [...state.masterData].reverse().forEach(data => {
       if (!existingIds.has(data.id)) {
         const newItem = this.buildCardData(data);
-        newItem.isNew = true;
-        state.columns[0].unshift(newItem);
-        addedCount++;
+        if (hasLocalData) newItem.isNew = true; // 既存ユーザーなら新着マーク
+        newItems.push(newItem);
       }
     });
 
-    if (addedCount > 0) this.save();
+    if (newItems.length > 0) {
+      if (!hasLocalData) {
+        // 【修正】初回起動時は分散させる
+        newItems.forEach((item, i) => {
+          const colIndex = i % CONFIG.columnCount;
+          state.columns[colIndex].unshift(item);
+        });
+      } else {
+        // 既存ユーザーへの追記は、先頭（0列目）にまとめて追加（新着に気づかせるため）
+        newItems.forEach(item => state.columns[0].unshift(item));
+      }
+      addedCount = newItems.length;
+      this.save();
+    }
+  },
+
+  // 【追加】レイアウトの偏りを検知して自動修正する
+  fixLayoutImbalance() {
+    let totalItems = 0;
+    state.columns.forEach(c => totalItems += c.length);
+    
+    if (totalItems < 10) return; // 少数なら無視
+
+    // 1つの列に8割以上のカードが集中していたら「崩壊」とみなす
+    const limit = totalItems * 0.8;
+    const unbalancedColIndex = state.columns.findIndex(c => c.length > limit);
+
+    if (unbalancedColIndex !== -1) {
+      console.log("Layout imbalance detected! Rebalancing...");
+      
+      // 一旦全アイテムを回収（順番は維持したいので、列順・上から順に回収）
+      // ただし、現在の偏りが「すべて0列目」なら、それを単純に分散させればよい
+      const allItems = [];
+      state.columns.forEach(c => {
+        allItems.push(...c);
+        c.length = 0; // 列を空にする
+      });
+
+      // 再分配
+      allItems.forEach((item, i) => {
+        const col = i % CONFIG.columnCount;
+        state.columns[col].push(item);
+      });
+      
+      this.save();
+    }
   },
 
   buildCardData(data) {
