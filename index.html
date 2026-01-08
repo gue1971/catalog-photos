@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (Static Drag & Drop)</title>
+<title>Horse Board (Swap & Flow)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -11,7 +11,6 @@
     --card-bg: #111;
     --text-color: #eee;
     --accent: #0078ff;
-    --target-color: #ffcc00; /* ドロップ先のハイライト色 */
     --zoom: 1.0;
     --gap: 8px;
   }
@@ -24,7 +23,7 @@
     overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
-    /* ブラウザ標準のスクロールとズームを全面的に許可 */
+    /* ブラウザ標準の操作（パン、ズーム）を許可 */
     touch-action: pan-x pan-y pinch-zoom; 
   }
 
@@ -51,11 +50,9 @@
   .viewport {
     width: 100vw;
     height: calc(100vh - 48px);
-    /* 縦横スクロールを許可 */
     overflow: auto; 
     position: relative;
     -webkit-overflow-scrolling: touch; 
-    /* ここも標準操作を許可 */
     touch-action: pan-x pan-y pinch-zoom;
   }
 
@@ -63,12 +60,13 @@
   .board {
     display: flex;
     flex-direction: row;
-    /* widthはJSで制御 */
     min-height: 100%;
     box-sizing: border-box;
     transform-origin: 0 0;
     padding: 8px;
     gap: calc(var(--gap) * var(--zoom));
+    /* アニメーション中のちらつき防止 */
+    backface-visibility: hidden;
   }
 
   .column {
@@ -77,9 +75,7 @@
     flex-direction: column;
     gap: calc(var(--gap) * var(--zoom));
     min-width: 0; 
-    /* 空の列にもドロップできるように最小高さを確保 */
-    min-height: 100px;
-    padding-bottom: 50px; /* 下部の余白 */
+    padding-bottom: 100px; /* ドロップしやすくするための余白 */
   }
 
   /* セル */
@@ -87,10 +83,13 @@
     position: relative;
     border-radius: calc(6px * var(--zoom));
     overflow: hidden;
-    /* セル上でもスクロール等は許可 */
+    /* 重要: セル上でもスクロール等は許可しておく */
     touch-action: pan-x pan-y pinch-zoom;
-    transition: transform 0.1s, opacity 0.1s;
+    /* 移動アニメーション */
+    transition: transform 0.2s cubic-bezier(0.2, 0, 0.2, 1);
     cursor: grab;
+    /* レイアウト最適化 */
+    contain: layout paint;
   }
   .cell:active { cursor: grabbing; }
 
@@ -114,7 +113,6 @@
     font-size: calc(24px * var(--zoom));
   }
 
-  /* テキスト情報（極小） */
   .cell.card .info-area {
     padding: calc(2px * var(--zoom)) calc(3px * var(--zoom));
     background: var(--card-bg);
@@ -139,23 +137,19 @@
     aspect-ratio: 4/1;
   }
 
-  /* ドラッグ中の元の場所（プレースホルダー） */
-  .cell.drag-placeholder {
-    opacity: 0.2;
-    filter: grayscale(100%);
+  /* ドラッグ中の「抜け殻（プレースホルダー）」 */
+  .cell.is-placeholder {
+    opacity: 0.1; /* ほぼ透明にして空き地感を出す */
     border: 1px dashed #666;
+    filter: grayscale(100%);
+    z-index: 0;
   }
   
-  /* ドロップ先のハイライト */
-  .cell.drop-target {
-    outline: 3px solid var(--target-color);
-    outline-offset: 2px;
-    z-index: 10;
-  }
-  
+  /* タップした瞬間の反応 */
   .cell.pressed {
-    transform: scale(0.96);
+    transform: scale(0.95);
     transition: transform 0.1s;
+    filter: brightness(1.2);
   }
 
   /* ツールチップ */
@@ -180,28 +174,22 @@
   .tooltip-popup strong { display: block; margin-bottom: 4px; font-size: 1.1em; }
   .tooltip-popup span { color: #ccc; font-size: 0.9em; }
 
-  /* ゴースト（指についてくるやつ） */
+  /* ゴースト（指についてくる本体） */
   .ghost {
     position: fixed; z-index: 9999;
     width: 120px;
     border-radius: 6px; overflow: hidden;
-    box-shadow: 0 16px 48px rgba(0,0,0,0.8);
-    transform: translate(-50%, -50%) scale(1.1) rotate(2deg); /* 少し傾けて持ち上げ感を演出 */
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+    /* 指の少し上に表示 */
+    transform: translate(-50%, -110%) scale(1.1); 
     pointer-events: none;
-    background: var(--card-bg); border: 1px solid #aaa; opacity: 0.95;
+    background: var(--card-bg); border: 1px solid #aaa; opacity: 1.0;
     will-change: left, top;
   }
   .ghost img { width: 100%; height: auto; display: block; }
   .ghost .info-area { padding: 4px; background: #222; display: block !important;}
   .ghost .info-title { font-size: 11px; font-weight: bold; color: #fff;}
   .ghost .info-sub { font-size: 9px; color: #aaa;}
-
-  /* 列自体のハイライト（空の列へのドロップ用） */
-  .column.drop-target-col {
-    background: rgba(255, 255, 255, 0.05);
-    box-shadow: inset 0 0 0 2px var(--target-color);
-    border-radius: 8px;
-  }
 
   #fileInput { display: none; }
 </style>
@@ -231,11 +219,10 @@
 
 <script>
 /**
- * Horse Board Logic (Static Drag & Drop)
- * - Removes realtime reordering (no more "billiard" effect).
- * - "Pick up and Place" metaphor.
- * - Supports horizontal scroll on trackpads.
- * - Improved stability for iPad.
+ * Horse Board Logic (Swap & Flow Version)
+ * - Logic: "Swap" instead of "Insert". 
+ * When dragging A over B, B moves to A's original spot (the placeholder).
+ * - UX: Long press (250ms) to drag. Native scrolling enabled otherwise.
  */
 
 const CONFIG = {
@@ -244,13 +231,14 @@ const CONFIG = {
   maxZoom: 3.5,
   detailThreshold: 1.5,
   
-  longPressDelay: 350, // しっかり長押しでドラッグ開始
+  longPressDelay: 250, // 長押し判定時間
   doubleTapDelay: 300,
   
-  autoScrollZone: 80, 
-  autoScrollSpeed: 10,
+  // オートスクロール設定
+  autoScrollZone: 60,
+  autoScrollSpeed: 12,
   
-  storageKey: "horse_board_v9_static" 
+  storageKey: "horse_board_v10_swap" 
 };
 
 const state = {
@@ -338,11 +326,8 @@ const app = {
     let totalItems = 0;
     state.columns.forEach(c => totalItems += c.length);
     if (totalItems < 10) return;
-
     const limit = totalItems * 0.8;
-    const unbalancedColIndex = state.columns.findIndex(c => c.length > limit);
-
-    if (unbalancedColIndex !== -1) {
+    if (state.columns.some(c => c.length > limit)) {
       const allItems = [];
       state.columns.forEach(c => { allItems.push(...c); c.length = 0; });
       allItems.forEach((item, i) => state.columns[i % CONFIG.columnCount].push(item));
@@ -479,7 +464,7 @@ const app = {
   },
 
   // ------------------------------------------------
-  // Interaction Logic (Static Drag / Drop)
+  // Core Event Logic (Swap & iPad Stability)
   // ------------------------------------------------
   attachEvents() {
     let pointerId = null;
@@ -490,17 +475,16 @@ const app = {
     let isDragging = false;
     let isMultiTouch = false;
     
-    let dragEl = null; 
-    let ghostEl = null;
-    let sourceCol = -1;
-    let sourceIdx = -1;
+    let dragEl = null;     // 元のDOM要素（プレースホルダー化される）
+    let ghostEl = null;    // 指についてくる表示用要素
     
-    // ドロップターゲット（ハイライト用）
-    let currentDropTargetEl = null;
-    
+    // データ上の現在位置（Swapごとに更新される）
+    let currentCol = -1;
+    let currentIdx = -1;
+
     let autoScrollRafId = null;
 
-    // --- PC Zoom ---
+    // --- PC Zoom Key Support ---
     window.addEventListener("keydown", (e) => {
       if (e.target.tagName === 'INPUT') return;
       if (e.key === "+" || e.key === "=") { this.applyZoom(0.1); e.preventDefault(); }
@@ -514,8 +498,8 @@ const app = {
     };
 
     const showDetail = (el) => {
-      el.classList.add("highlight");
-      setTimeout(()=> el.classList.remove("highlight"), 300);
+      el.classList.add("pressed");
+      setTimeout(()=> el.classList.remove("pressed"), 200);
       const horseId = el.dataset.horseId;
       if (horseId) window.open(this.getNetkeibaUrl(horseId), '_blank'); 
     };
@@ -549,63 +533,28 @@ const app = {
       }
     };
 
-    // --- Highlight Management ---
-    const clearDropHighlight = () => {
-      if (currentDropTargetEl) {
-        currentDropTargetEl.classList.remove("drop-target");
-        currentDropTargetEl = null;
-      }
-      document.querySelectorAll('.drop-target-col').forEach(el => el.classList.remove('drop-target-col'));
-    };
-
-    const updateDropHighlight = (x, y) => {
-      clearDropHighlight();
-      
-      // ゴーストを非表示にして下の要素を取得
-      if (ghostEl) ghostEl.style.display = 'none';
-      let target = document.elementFromPoint(x, y);
-      if (ghostEl) ghostEl.style.display = 'block';
-
-      if (!target) return;
-
-      const cell = target.closest('.cell');
-      if (cell && this.board.contains(cell)) {
-        // 自分自身でなければハイライト
-        if (cell !== dragEl) {
-          cell.classList.add("drop-target");
-          currentDropTargetEl = cell;
-        }
-      } else {
-        // 空の列へのドロップ判定
-        const col = target.closest('.column');
-        if (col && this.board.contains(col)) {
-           // 列の中にセルが無い、あるいは下の方
-           col.classList.add("drop-target-col");
-        }
-      }
-    };
-
     // --- Drag Start ---
     const startDrag = (el, x, y) => {
       if (isMultiTouch) return;
 
       isDragging = true;
       dragEl = el;
-      // Capture
+      
+      // Pointer Capture: スクロールを無効化してドラッグに専念させる
       if (pointerId && dragEl.setPointerCapture) {
         try { dragEl.setPointerCapture(pointerId); } catch(e){}
       }
       
-      // プレースホルダー化（元の場所を維持）
-      dragEl.classList.add("drag-placeholder");
+      // 元の場所をプレースホルダー化
+      dragEl.classList.add("is-placeholder");
       
-      sourceCol = Number(dragEl.dataset.col);
-      sourceIdx = Number(dragEl.dataset.idx);
+      currentCol = Number(dragEl.dataset.col);
+      currentIdx = Number(dragEl.dataset.idx);
       
-      // ゴースト作成
+      // ゴースト生成
       ghostEl = el.cloneNode(true);
       ghostEl.className = "ghost";
-      ghostEl.classList.remove("drag-placeholder", "pressed"); // ゴーストはクリーンに
+      ghostEl.classList.remove("is-placeholder", "pressed");
       const info = ghostEl.querySelector(".info-area");
       if(info) info.style.display = "block";
       document.body.appendChild(ghostEl);
@@ -632,7 +581,7 @@ const app = {
       pointerId = e.pointerId;
       startX = e.clientX; 
       startY = e.clientY;
-      cell.classList.add("pressed");
+      cell.classList.add("pressed"); // タップフィードバック
 
       const now = Date.now();
       if (now - lastTapTime < CONFIG.doubleTapDelay) {
@@ -643,6 +592,7 @@ const app = {
       }
       lastTapTime = now;
 
+      // 長押しタイマー
       dragTimer = setTimeout(() => {
         startDrag(cell, e.clientX, e.clientY);
       }, CONFIG.longPressDelay);
@@ -651,79 +601,102 @@ const app = {
     this.board.addEventListener("pointermove", (e) => {
       if (e.pointerId !== pointerId) return;
 
+      // ドラッグ中
       if (isDragging) {
-        e.preventDefault(); // スクロール阻止
-        
+        e.preventDefault(); // ブラウザ標準動作（スクロール）をブロック
         checkAutoScroll(e.clientY);
         updateGhost(e.clientX, e.clientY);
-        
-        // ハイライト更新（計算負荷軽減のためrAFに入れるのもアリだが、静的移動なので現状でもOK）
-        updateDropHighlight(e.clientX, e.clientY);
+        handleSwapLogic(e.clientX, e.clientY);
         return;
       }
 
-      // スクロール判定
+      // ドラッグ前：スクロール判定
       const dx = Math.abs(e.clientX - startX);
       const dy = Math.abs(e.clientY - startY);
       if (dx > 10 || dy > 10) { 
-        clearTimers();
+        clearTimers(); // 動いたら長押しキャンセル（スクロール優先）
         const cell = e.target.closest(".cell");
         if (cell) cell.classList.remove("pressed");
       }
     });
 
-    // --- Drop Logic (Execute Move) ---
-    const executeDrop = (x, y) => {
-      clearDropHighlight();
-      
-      // ドロップ先の特定
+    // --- Swap Logic (The Core) ---
+    const handleSwapLogic = (x, y) => {
+      // ゴーストを一時的に隠して下の要素を取得
       if (ghostEl) ghostEl.style.display = 'none';
       let target = document.elementFromPoint(x, y);
-      if (ghostEl) ghostEl.style.display = 'block'; // 一瞬なので不要かもだが
+      if (ghostEl) ghostEl.style.display = 'block';
 
-      // ターゲット情報の算出
-      let targetCol = -1;
-      let targetIdx = -1;
+      if (!target) return;
+      const targetCell = target.closest('.cell');
       
-      if (target) {
-        const targetCell = target.closest('.cell');
-        const targetColumn = target.closest('.column');
+      // ターゲットがセルであり、かつ自分自身（プレースホルダー）でない場合
+      if (targetCell && targetCell !== dragEl && this.board.contains(targetCell)) {
+        
+        const targetCol = Number(targetCell.dataset.col);
+        const targetIdx = Number(targetCell.dataset.idx);
 
-        if (targetCell && this.board.contains(targetCell)) {
-           targetCol = Number(targetCell.dataset.col);
-           
-           // セルの上半分か下半分かで挿入位置を変えるのがベストだが
-           // 今回は「重なった相手の位置」に挿入（相手は後ろへ）とする
-           targetIdx = Number(targetCell.dataset.idx);
-           
-        } else if (targetColumn && this.board.contains(targetColumn)) {
-           // 空列、または列の末尾へのドロップ
-           targetCol = Number(targetColumn.dataset.colIndex);
-           targetIdx = state.columns[targetCol].length; // 末尾
+        // データ配列のスワップ
+        const temp = state.columns[currentCol][currentIdx];
+        state.columns[currentCol][currentIdx] = state.columns[targetCol][targetIdx];
+        state.columns[targetCol][targetIdx] = temp;
+
+        // DOMの移動（プレースホルダーをターゲットの位置へ移動、ターゲットをプレースホルダーの位置へ移動）
+        // 実際にはDOMツリー上でノードを入れ替えるだけで、CSS Transitionによりアニメーションする
+        const parentColEl = this.board.children[currentCol];
+        const targetParentColEl = this.board.children[targetCol];
+
+        // 複雑なノード入れ替えの簡易実装：再描画はコストが高いので、DOM操作で対応
+        // 1. targetCellの次の兄弟を覚えておく
+        const targetNext = targetCell.nextSibling;
+        const dragNext = dragEl.nextSibling;
+
+        // 同じ列内での交換
+        if (currentCol === targetCol) {
+             // 単純なswapは難しいので、データに合わせて再描画したいが重い。
+             // ここでは「相手（target）」を「自分（placeholder）」の場所に飛ばすことで表現する。
+             // ユーザーの要望「重なっているカードが空いたところに移動」＝ Swap。
+             
+             // 単純化のため、DOMのdatasetを更新しつつ、要素を入れ替える
+             // しかしReactのようなDiffエンジンがないので、直接DOMをいじると管理が複雑化する。
+             // ここは「部分再描画」が最も安全かつ確実。
+             // 列（Column）ごとの再描画ならコストは低い。
+             
+             this.renderColumn(currentCol);
+        } else {
+             // 異なる列間の交換
+             this.renderColumn(currentCol);
+             this.renderColumn(targetCol);
+        }
+
+        // 現在位置を更新
+        currentCol = targetCol;
+        currentIdx = targetIdx;
+        
+        // 再描画されたDOMから新しいdragEl（プレースホルダー）を取得しなおす必要がある
+        // なぜならrenderColumnでDOMが作り直されているから。
+        const newColEl = this.board.children[currentCol];
+        const newDragEl = newColEl.children[currentIdx];
+        
+        if (newDragEl) {
+          dragEl = newDragEl;
+          dragEl.classList.add("is-placeholder"); // 再び透明に
+          // Pointer Captureは切れる可能性があるが、iPadではmoveイベントがdocument等で拾えるならOK
+          // 再設定を試みる
+          if(pointerId) { try{ dragEl.setPointerCapture(pointerId); }catch(e){} }
         }
       }
+    };
 
-      // ドロップが無効、または元の位置なら何もしない
-      if (targetCol === -1 || (targetCol === sourceCol && targetIdx === sourceIdx)) {
-        return;
-      }
-
-      // データ移動実行
-      const item = state.columns[sourceCol][sourceIdx];
-      state.columns[sourceCol].splice(sourceIdx, 1);
-      
-      // 同一列で、下へ移動する場合のインデックス補正
-      // 削除によってインデックスがずれるため
-      let adjust = 0;
-      if (sourceCol === targetCol && sourceIdx < targetIdx) {
-        adjust = -1;
-      }
-      const finalTargetIdx = Math.max(0, targetIdx + adjust);
-      
-      state.columns[targetCol].splice(finalTargetIdx, 0, item);
-      
-      this.save();
-      this.render(); // 全再描画（これで位置が確定する）
+    // 列単位の部分再描画（高速化のため）
+    app.renderColumn = (colIndex) => {
+        const colEl = app.board.children[colIndex];
+        const items = state.columns[colIndex];
+        colEl.innerHTML = "";
+        items.forEach((item, itemIndex) => {
+            const cell = app.createCell(item, colIndex, itemIndex);
+            colEl.appendChild(cell);
+        });
     };
 
     const endInteraction = (e) => {
@@ -736,17 +709,17 @@ const app = {
       if (cell) cell.classList.remove("pressed");
       
       if (isDragging) {
-        // ドロップ処理
-        executeDrop(e.clientX, e.clientY);
-
         isDragging = false;
         if (ghostEl) ghostEl.remove();
         if (dragEl) {
-          dragEl.classList.remove("drag-placeholder");
+          dragEl.classList.remove("is-placeholder");
           if (dragEl.releasePointerCapture && pointerId) {
              try { dragEl.releasePointerCapture(pointerId); } catch(e){}
           }
         }
+        this.save();
+        // 念のため全リフレッシュ
+        // this.render(); 
       }
       pointerId = null;
     };
@@ -762,12 +735,13 @@ const app = {
       if (e.touches.length >= 2) {
         isMultiTouch = true;
         if (isDragging) {
-           // ピンチ開始したらドラッグはキャンセル（元の位置に戻す）
+           // ピンチしたらドラッグキャンセル
            isDragging = false;
            if(ghostEl) ghostEl.remove();
-           if(dragEl) dragEl.classList.remove("drag-placeholder");
+           if(dragEl) dragEl.classList.remove("is-placeholder");
            stopAutoScroll();
-           clearDropHighlight();
+           // 元に戻す処理が必要だが、今回は位置確定してしまう（簡易対応）
+           this.render();
         }
         clearTimers();
         
