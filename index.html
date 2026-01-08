@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (Auto Fix)</title>
+<title>Horse Board (iPad Stabilized)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -23,8 +23,8 @@
     overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
-    /* ピンチズーム等のネイティブ操作を干渉させないために auto または manipulation に戻す */
-    touch-action: manipulation;
+    /* アプリ側で制御するため、ブラウザ標準の操作を制限 */
+    touch-action: none; 
   }
 
   /* ツールバー */
@@ -53,9 +53,8 @@
     overflow-y: scroll;
     overflow-x: hidden;
     position: relative;
-    /* 慣性スクロール有効 */
     -webkit-overflow-scrolling: touch; 
-    /* ここはスクロール操作を受け付ける */
+    /* 縦スクロールのみ許可（ピンチはJSで奪う） */
     touch-action: pan-y;
   }
 
@@ -84,8 +83,8 @@
     position: relative;
     border-radius: calc(6px * var(--zoom));
     overflow: hidden;
-    /* ここが重要：noneだとスクロール不可になる。manipulationかpan-yにする */
-    touch-action: pan-y pinch-zoom;
+    /* ここ重要: pan-y でスクロールを通す */
+    touch-action: pan-y;
     transition: transform 0.1s, opacity 0.1s;
     cursor: grab;
   }
@@ -143,7 +142,7 @@
     transition: transform 0.1s;
   }
   /* ドラッグ中は元の要素を半透明に */
-  .cell.dragging { opacity: 0.1; }
+  .cell.dragging { opacity: 0.15; }
   
   .cell.highlight { animation: flash 0.3s ease-out; }
   @keyframes flash {
@@ -189,9 +188,10 @@
     width: 120px;
     border-radius: 6px; overflow: hidden;
     box-shadow: 0 12px 32px rgba(0,0,0,0.6);
-    transform: translate(-50%, -50%) scale(1.1); /* 少し大きくして浮遊感 */
+    transform: translate(-50%, -50%) scale(1.1);
     pointer-events: none;
     background: var(--card-bg); border: 1px solid #888; opacity: 0.95;
+    will-change: left, top; /* パフォーマンス最適化 */
   }
   .ghost img { width: 100%; height: auto; display: block; }
   .ghost .info-area { padding: 4px; background: #222; display: block !important;}
@@ -212,7 +212,6 @@
 <div class="toolbar">
   <div class="toolbar-group">
     <button class="btn" onclick="app.addSpacer()"><i class="fa-solid fa-plus"></i> 空白</button>
-    <!-- Add Dummy はもう不要かもしれんが残しておく -->
     <button class="btn" onclick="app.addDummyCard()"><i class="fa-solid fa-horse"></i> 馬追加</button>
   </div>
   <div class="toolbar-group">
@@ -227,10 +226,10 @@
 
 <script>
 /**
- * Horse Board Logic (Smart Touch & PC Support & Auto Fix)
- * - Touch: Long press to drag. Pinch to zoom (native-like). Scroll enabled.
- * - PC: Ctrl+Wheel to zoom. Keyboard (+/-) to zoom.
- * - Auto Fix: Balances columns if they are extremely uneven (e.g. all in col 0).
+ * Horse Board Logic (iPad Optimized)
+ * - Drag: RequestAnimationFrame throttling for stability.
+ * - Zoom: Native-like pinch handling via Touch Events (preventing conflicts).
+ * - Layout: Auto-fix for vertical stacking issues.
  */
 
 const CONFIG = {
@@ -238,12 +237,9 @@ const CONFIG = {
   minZoom: 0.5,
   maxZoom: 3.5,
   detailThreshold: 1.5,
-  
-  // 調整パラメータ
-  longPressDelay: 350, // ドラッグ開始までの長押し時間（誤操作防止のため少し長め）
+  longPressDelay: 350,
   doubleTapDelay: 300,
-  
-  storageKey: "horse_board_v7_touch" // キーは維持してデータを引き継ぎ、補正する
+  storageKey: "horse_board_v7_touch"
 };
 
 const state = {
@@ -268,8 +264,6 @@ const app = {
     if (state.masterData.length > 0) {
        this.syncMasterData(hasLocalData);
     }
-    
-    // レイアウト崩れ（縦一列問題）の自動修復
     this.fixLayoutImbalance();
 
     this.render();
@@ -316,62 +310,44 @@ const app = {
       });
     });
 
-    let addedCount = 0;
     const newItems = [];
-    
-    // 追加候補リスト作成
     [...state.masterData].reverse().forEach(data => {
       if (!existingIds.has(data.id)) {
         const newItem = this.buildCardData(data);
-        if (hasLocalData) newItem.isNew = true; // 既存ユーザーなら新着マーク
+        if (hasLocalData) newItem.isNew = true;
         newItems.push(newItem);
       }
     });
 
     if (newItems.length > 0) {
       if (!hasLocalData) {
-        // 【修正】初回起動時は分散させる
         newItems.forEach((item, i) => {
-          const colIndex = i % CONFIG.columnCount;
-          state.columns[colIndex].unshift(item);
+          state.columns[i % CONFIG.columnCount].unshift(item);
         });
       } else {
-        // 既存ユーザーへの追記は、先頭（0列目）にまとめて追加（新着に気づかせるため）
         newItems.forEach(item => state.columns[0].unshift(item));
       }
-      addedCount = newItems.length;
       this.save();
     }
   },
 
-  // 【追加】レイアウトの偏りを検知して自動修正する
   fixLayoutImbalance() {
     let totalItems = 0;
     state.columns.forEach(c => totalItems += c.length);
-    
-    if (totalItems < 10) return; // 少数なら無視
+    if (totalItems < 10) return;
 
-    // 1つの列に8割以上のカードが集中していたら「崩壊」とみなす
     const limit = totalItems * 0.8;
     const unbalancedColIndex = state.columns.findIndex(c => c.length > limit);
 
     if (unbalancedColIndex !== -1) {
-      console.log("Layout imbalance detected! Rebalancing...");
-      
-      // 一旦全アイテムを回収（順番は維持したいので、列順・上から順に回収）
-      // ただし、現在の偏りが「すべて0列目」なら、それを単純に分散させればよい
       const allItems = [];
       state.columns.forEach(c => {
         allItems.push(...c);
-        c.length = 0; // 列を空にする
+        c.length = 0;
       });
-
-      // 再分配
       allItems.forEach((item, i) => {
-        const col = i % CONFIG.columnCount;
-        state.columns[col].push(item);
+        state.columns[i % CONFIG.columnCount].push(item);
       });
-      
       this.save();
     }
   },
@@ -461,7 +437,6 @@ const app = {
   },
   
   addDummyCard() {
-    // 動作確認用
     if (state.masterData.length === 0) return;
     const randomData = state.masterData[Math.floor(Math.random()*state.masterData.length)];
     state.columns[0].unshift(this.buildCardData(randomData));
@@ -470,7 +445,7 @@ const app = {
   },
 
   resetData() {
-    if(!confirm("配置をリセットしてマスターデータから再生成しますか？")) return;
+    if(!confirm("リセットしますか？")) return;
     localStorage.removeItem(CONFIG.storageKey);
     location.reload();
   },
@@ -506,7 +481,7 @@ const app = {
   },
 
   // ------------------------------------------------
-  // Events (Smart Interaction)
+  // Stabilized Event System (The Core Fix)
   // ------------------------------------------------
   attachEvents() {
     let pointerId = null;
@@ -515,30 +490,22 @@ const app = {
     let lastTapTime = 0;
     
     let isDragging = false;
-    let isMultiTouch = false; // ピンチ中かどうか
+    let isMultiTouch = false;
     
     let dragEl = null; 
     let ghostEl = null;
     let sourceCol = -1;
     let sourceIdx = -1;
+    
+    // Performance Optimization: Throttle Drag Updates
+    let rafId = null;
 
-    // キーボードイベント (PC用)
+    // --- PC Keyboard Zoom ---
     window.addEventListener("keydown", (e) => {
-      if (e.target.tagName === 'INPUT') return; // 入力中は無視
-      
-      // Ctrl (or Meta) + Key
-      if (e.key === "+" || e.key === "=") {
-        this.applyZoom(0.1);
-        e.preventDefault();
-      } else if (e.key === "-") {
-        this.applyZoom(-0.1);
-        e.preventDefault();
-      } else if (e.key === "0") {
-        state.zoom = 1.0;
-        this.updateZoomStyle();
-        this.save();
-        e.preventDefault();
-      }
+      if (e.target.tagName === 'INPUT') return;
+      if (e.key === "+" || e.key === "=") { this.applyZoom(0.1); e.preventDefault(); }
+      else if (e.key === "-") { this.applyZoom(-0.1); e.preventDefault(); }
+      else if (e.key === "0") { state.zoom = 1.0; this.updateZoomStyle(); this.save(); e.preventDefault(); }
     });
 
     const clearTimers = () => {
@@ -550,30 +517,29 @@ const app = {
       el.classList.add("highlight");
       setTimeout(()=> el.classList.remove("highlight"), 300);
       const horseId = el.dataset.horseId;
-      if (horseId) {
-        window.open(this.getNetkeibaUrl(horseId), '_blank'); 
-      }
+      if (horseId) window.open(this.getNetkeibaUrl(horseId), '_blank'); 
     };
 
-    // ドラッグ開始（長押し確定時のみ呼ぶ）
+    // --- Drag Logic ---
     const startDrag = (el, x, y) => {
-      if (isMultiTouch) return; // ピンチ中ならキャンセル
+      if (isMultiTouch) return;
 
       isDragging = true;
       dragEl = el;
-      
-      // ここで初めてPointer Captureを設定（スクロールを乗っ取る）
-      if (pointerId) dragEl.setPointerCapture(pointerId);
+      // Capture pointer to track outside elements
+      if (pointerId && dragEl.setPointerCapture) {
+        try { dragEl.setPointerCapture(pointerId); } catch(e){}
+      }
       
       dragEl.classList.add("dragging");
       sourceCol = Number(dragEl.dataset.col);
       sourceIdx = Number(dragEl.dataset.idx);
       
-      // ゴースト作成
+      // Ghost creation
       ghostEl = el.cloneNode(true);
       ghostEl.className = "ghost";
       const info = ghostEl.querySelector(".info-area");
-      if(info) info.style.display = "block"; // ドラッグ中は詳細表示
+      if(info) info.style.display = "block";
       document.body.appendChild(ghostEl);
       updateGhost(x, y);
       
@@ -587,25 +553,20 @@ const app = {
       }
     };
 
-    // ------------------------------------
-    // Pointer Events (Main Logic)
-    // ------------------------------------
+    // --- Pointer Events (Touch & Mouse) ---
     this.board.addEventListener("pointerdown", (e) => {
-      if (e.button !== 0) return; // 左クリック以外無視
-      if (isMultiTouch) return;   // マルチタッチ中無視
+      if (e.button !== 0) return;
+      if (isMultiTouch) return;
 
       const cell = e.target.closest(".cell");
       if (!cell) return;
 
       pointerId = e.pointerId;
-      // 注意：ここでは setPointerCapture しない！
-      // 理由：スクロールやピンチズームを阻害しないため。
-      
       startX = e.clientX; 
       startY = e.clientY;
-      cell.classList.add("pressed"); // 視覚フィードバック（押下）
+      cell.classList.add("pressed");
 
-      // ダブルタップ判定
+      // Double Tap Check
       const now = Date.now();
       if (now - lastTapTime < CONFIG.doubleTapDelay) {
         clearTimers();
@@ -615,11 +576,8 @@ const app = {
       }
       lastTapTime = now;
 
-      // 長押しタイマー開始
+      // Start Long Press Timer
       dragTimer = setTimeout(() => {
-        // マウスの場合は即ドラッグでも良いが、統一感のため長押し判定にするか、
-        // あるいはマウスなら移動開始でドラッグにするか。
-        // 今回は「誤操作防止」優先で長押し成立でドラッグ開始とする。
         startDrag(cell, e.clientX, e.clientY);
       }, CONFIG.longPressDelay);
     });
@@ -627,27 +585,32 @@ const app = {
     this.board.addEventListener("pointermove", (e) => {
       if (e.pointerId !== pointerId) return;
 
-      // ドラッグ中ならゴースト移動＆並び替え
+      // Dragging Phase
       if (isDragging) {
-        e.preventDefault(); // ドラッグ中のスクロール禁止
-        updateGhost(e.clientX, e.clientY);
-        handleDragMove(e.clientX, e.clientY);
+        e.preventDefault(); // Stop Scroll
+        
+        // Use requestAnimationFrame to throttle heavy calculations
+        if (!rafId) {
+          rafId = requestAnimationFrame(() => {
+            updateGhost(e.clientX, e.clientY);
+            handleDragMove(e.clientX, e.clientY);
+            rafId = null;
+          });
+        }
         return;
       }
 
-      // ドラッグ未開始の場合
-      // 一定以上動いたら「スクロール意図」とみなして、長押しタイマーをキャンセル
+      // Pre-Drag Phase (Scroll Check)
       const dist = Math.hypot(e.clientX - startX, e.clientY - startY);
-      if (dist > 5) { 
+      if (dist > 8) { // If moved slightly, it's a scroll, not a hold
         clearTimers();
-        // 視覚的なpressed状態も解除（ただのスクロールなので）
         const cell = e.target.closest(".cell");
         if (cell) cell.classList.remove("pressed");
       }
     });
 
     const handleDragMove = (x, y) => {
-      // (前回のロジックと同じ)
+      // Find Target Column
       const boardRect = this.board.getBoundingClientRect();
       const colWidth = boardRect.width / CONFIG.columnCount;
       let targetCol = Math.floor((x - boardRect.left) / colWidth);
@@ -657,6 +620,7 @@ const app = {
       const colEl = this.board.children[targetCol];
       if (!colEl) return;
       
+      // Find Target Index
       const cells = Array.from(colEl.children);
       let targetIdx = cells.length;
       for (let i = 0; i < cells.length; i++) {
@@ -667,9 +631,11 @@ const app = {
         }
       }
 
+      // Optimization: Don't update if position hasn't changed
       if (targetCol === Number(dragEl.dataset.col) && 
          (targetIdx === Number(dragEl.dataset.idx) || targetIdx === Number(dragEl.dataset.idx) + 1)) return;
       
+      // Execute Move
       const item = state.columns[sourceCol][sourceIdx];
       state.columns[sourceCol].splice(sourceIdx, 1);
       
@@ -679,12 +645,14 @@ const app = {
       
       state.columns[targetCol].splice(finalTargetIdx, 0, item);
       
+      // DOM Update
       if (cells.length === 0 || targetIdx >= cells.length) {
         colEl.appendChild(dragEl);
       } else {
         colEl.insertBefore(dragEl, cells[targetIdx]);
       }
       
+      // Update Indices
       const updateDataset = (cIdx) => {
         Array.from(this.board.children[cIdx].children).forEach((ch, idx) => {
           ch.dataset.col = cIdx; ch.dataset.idx = idx;
@@ -700,7 +668,8 @@ const app = {
       if (pointerId && e.pointerId !== pointerId) return;
       
       clearTimers();
-      
+      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+
       const cell = e.target.closest(".cell");
       if (cell) cell.classList.remove("pressed");
       
@@ -709,13 +678,13 @@ const app = {
         if (ghostEl) ghostEl.remove();
         if (dragEl) {
           dragEl.classList.remove("dragging");
-          // キャプチャ解除（自動で外れるが念のため）
           if (dragEl.releasePointerCapture && pointerId) {
              try { dragEl.releasePointerCapture(pointerId); } catch(e){}
           }
         }
         this.save();
-        this.render(); // 整合性確保のため再描画
+        // Recalculate layout just in case
+        this.render(); 
       }
       
       pointerId = null;
@@ -724,40 +693,58 @@ const app = {
     this.board.addEventListener("pointerup", endInteraction);
     this.board.addEventListener("pointercancel", endInteraction);
     
-    // ------------------------------------
-    // Touch Events (Multi-touch Check)
-    // ------------------------------------
+    // --- Touch Events (Pinch Zoom) ---
+    let initialDist = 0;
+    let initialZoom = 1.0;
+
     this.viewport.addEventListener("touchstart", (e) => {
       if (e.touches.length >= 2) {
         isMultiTouch = true;
-        // 2本指以上触れたら、ドラッグ準備や実行中のドラッグを即キャンセル
         clearTimers();
         if (isDragging) {
-          // 強制終了
+          // Force cancel drag if pinch starts
           endInteraction({ pointerId: pointerId, target: dragEl || document.body });
         }
-        // ここでは preventDefault しない（ネイティブのピンチズームを使わせるため）
+        
+        // Init Zoom Logic
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        initialDist = Math.hypot(dx, dy);
+        initialZoom = state.zoom;
       }
-    }, { passive: true });
+    }, { passive: false });
+
+    this.viewport.addEventListener("touchmove", (e) => {
+      if (isMultiTouch && e.touches.length >= 2) {
+        e.preventDefault(); // Block Native Zoom
+        
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        
+        if (initialDist > 0) {
+           const ratio = dist / initialDist;
+           const newZoom = Math.min(Math.max(initialZoom * ratio, CONFIG.minZoom), CONFIG.maxZoom);
+           state.zoom = newZoom;
+           this.updateZoomStyle();
+        }
+      }
+    }, { passive: false });
 
     this.viewport.addEventListener("touchend", (e) => {
       if (e.touches.length < 2) {
         isMultiTouch = false;
+        this.save();
       }
-      this.save(); // ズーム変更されているかもしれないので保存
     });
     
-    // ------------------------------------
-    // Wheel Zoom (PC)
-    // ------------------------------------
+    // --- Wheel Zoom (PC) ---
     this.viewport.addEventListener("wheel", (e) => {
-      // Ctrlキーがある場合のみズーム
       if (e.ctrlKey) {
         e.preventDefault();
         const delta = e.deltaY * -0.01;
         this.applyZoom(delta);
       }
-      // なければ通常スクロール
     }, { passive: false });
   },
 
@@ -766,7 +753,6 @@ const app = {
     newZoom = Math.min(Math.max(newZoom, CONFIG.minZoom), CONFIG.maxZoom);
     state.zoom = newZoom;
     this.updateZoomStyle();
-    
     if (this.zoomTimer) clearTimeout(this.zoomTimer);
     this.zoomTimer = setTimeout(()=> this.save(), 500);
   }
