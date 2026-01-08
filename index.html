@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (iPad Stabilized)</title>
+<title>Horse Board (iPad Final Tuning)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -23,8 +23,8 @@
     overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
-    /* アプリ側で制御するため、ブラウザ標準の操作を制限 */
-    touch-action: none; 
+    /* ピンチ操作はJSで制御するため、ブラウザ標準の操作と衝突しないよう調整 */
+    touch-action: pan-y; 
   }
 
   /* ツールバー */
@@ -54,7 +54,6 @@
     overflow-x: hidden;
     position: relative;
     -webkit-overflow-scrolling: touch; 
-    /* 縦スクロールのみ許可（ピンチはJSで奪う） */
     touch-action: pan-y;
   }
 
@@ -68,6 +67,8 @@
     transform-origin: 0 0;
     padding: 8px;
     gap: calc(var(--gap) * var(--zoom));
+    /* 重要: ズーム操作時のカクつきを抑える */
+    will-change: width, gap;
   }
 
   .column {
@@ -83,7 +84,6 @@
     position: relative;
     border-radius: calc(6px * var(--zoom));
     overflow: hidden;
-    /* ここ重要: pan-y でスクロールを通す */
     touch-action: pan-y;
     transition: transform 0.1s, opacity 0.1s;
     cursor: grab;
@@ -191,7 +191,7 @@
     transform: translate(-50%, -50%) scale(1.1);
     pointer-events: none;
     background: var(--card-bg); border: 1px solid #888; opacity: 0.95;
-    will-change: left, top; /* パフォーマンス最適化 */
+    will-change: left, top;
   }
   .ghost img { width: 100%; height: auto; display: block; }
   .ghost .info-area { padding: 4px; background: #222; display: block !important;}
@@ -226,10 +226,10 @@
 
 <script>
 /**
- * Horse Board Logic (iPad Optimized)
- * - Drag: RequestAnimationFrame throttling for stability.
- * - Zoom: Native-like pinch handling via Touch Events (preventing conflicts).
- * - Layout: Auto-fix for vertical stacking issues.
+ * Horse Board Logic (iPad Final Tuning)
+ * - Auto Scroll: Enables vertical dragging on long lists.
+ * - Zoom: Dedicated Touch Event handler to separate pinch from drag.
+ * - Drag Stability: Stricter movement thresholds and timer resets.
  */
 
 const CONFIG = {
@@ -237,9 +237,15 @@ const CONFIG = {
   minZoom: 0.5,
   maxZoom: 3.5,
   detailThreshold: 1.5,
+  
   longPressDelay: 350,
   doubleTapDelay: 300,
-  storageKey: "horse_board_v7_touch"
+  
+  // オートスクロール設定
+  autoScrollZone: 80, // 上下端の反応エリア(px)
+  autoScrollSpeed: 10, // スクロール速度
+  
+  storageKey: "horse_board_v8_final" 
 };
 
 const state = {
@@ -274,12 +280,8 @@ const app = {
   async loadMasterData() {
     try {
       const res = await fetch(`data/horses.json?t=${Date.now()}`);
-      if (res.ok) {
-        state.masterData = await res.json();
-      }
-    } catch (e) {
-      state.masterData = [];
-    }
+      if (res.ok) state.masterData = await res.json();
+    } catch (e) { state.masterData = []; }
   },
 
   loadBoardState() {
@@ -305,9 +307,7 @@ const app = {
   syncMasterData(hasLocalData) {
     const existingIds = new Set();
     state.columns.forEach(col => {
-      col.forEach(item => {
-        if (item.type === 'card' && item.id) existingIds.add(item.id);
-      });
+      col.forEach(item => { if (item.type === 'card' && item.id) existingIds.add(item.id); });
     });
 
     const newItems = [];
@@ -321,9 +321,7 @@ const app = {
 
     if (newItems.length > 0) {
       if (!hasLocalData) {
-        newItems.forEach((item, i) => {
-          state.columns[i % CONFIG.columnCount].unshift(item);
-        });
+        newItems.forEach((item, i) => state.columns[i % CONFIG.columnCount].unshift(item));
       } else {
         newItems.forEach(item => state.columns[0].unshift(item));
       }
@@ -341,13 +339,8 @@ const app = {
 
     if (unbalancedColIndex !== -1) {
       const allItems = [];
-      state.columns.forEach(c => {
-        allItems.push(...c);
-        c.length = 0;
-      });
-      allItems.forEach((item, i) => {
-        state.columns[i % CONFIG.columnCount].push(item);
-      });
+      state.columns.forEach(c => { allItems.push(...c); c.length = 0; });
+      allItems.forEach((item, i) => state.columns[i % CONFIG.columnCount].push(item));
       this.save();
     }
   },
@@ -481,7 +474,7 @@ const app = {
   },
 
   // ------------------------------------------------
-  // Stabilized Event System (The Core Fix)
+  // Events
   // ------------------------------------------------
   attachEvents() {
     let pointerId = null;
@@ -497,10 +490,10 @@ const app = {
     let sourceCol = -1;
     let sourceIdx = -1;
     
-    // Performance Optimization: Throttle Drag Updates
     let rafId = null;
+    let autoScrollRafId = null;
 
-    // --- PC Keyboard Zoom ---
+    // --- PC Zoom ---
     window.addEventListener("keydown", (e) => {
       if (e.target.tagName === 'INPUT') return;
       if (e.key === "+" || e.key === "=") { this.applyZoom(0.1); e.preventDefault(); }
@@ -520,13 +513,48 @@ const app = {
       if (horseId) window.open(this.getNetkeibaUrl(horseId), '_blank'); 
     };
 
-    // --- Drag Logic ---
+    // --- Auto Scroll Logic ---
+    const stopAutoScroll = () => {
+      if (autoScrollRafId) {
+        cancelAnimationFrame(autoScrollRafId);
+        autoScrollRafId = null;
+      }
+    };
+
+    const checkAutoScroll = (y) => {
+      stopAutoScroll();
+      if (!isDragging) return;
+
+      const vHeight = this.viewport.clientHeight;
+      const rect = this.viewport.getBoundingClientRect();
+      const relativeY = y - rect.top;
+
+      let scrollSpeed = 0;
+      if (relativeY < CONFIG.autoScrollZone) {
+        // Scroll Up
+        scrollSpeed = -CONFIG.autoScrollSpeed * (1 - relativeY / CONFIG.autoScrollZone);
+      } else if (relativeY > vHeight - CONFIG.autoScrollZone) {
+        // Scroll Down
+        scrollSpeed = CONFIG.autoScrollSpeed * (1 - (vHeight - relativeY) / CONFIG.autoScrollZone);
+      }
+
+      if (scrollSpeed !== 0) {
+        const loop = () => {
+          this.viewport.scrollTop += scrollSpeed;
+          // ゴーストも追従させる必要があるが、ghostはfixedなのでそのままでOK
+          // ただし、ドロップ判定の再計算が必要かもしれないが、moveイベントで処理されるのでOK
+          autoScrollRafId = requestAnimationFrame(loop);
+        };
+        loop();
+      }
+    };
+
+    // --- Drag Start ---
     const startDrag = (el, x, y) => {
       if (isMultiTouch) return;
 
       isDragging = true;
       dragEl = el;
-      // Capture pointer to track outside elements
       if (pointerId && dragEl.setPointerCapture) {
         try { dragEl.setPointerCapture(pointerId); } catch(e){}
       }
@@ -535,7 +563,6 @@ const app = {
       sourceCol = Number(dragEl.dataset.col);
       sourceIdx = Number(dragEl.dataset.idx);
       
-      // Ghost creation
       ghostEl = el.cloneNode(true);
       ghostEl.className = "ghost";
       const info = ghostEl.querySelector(".info-area");
@@ -553,7 +580,7 @@ const app = {
       }
     };
 
-    // --- Pointer Events (Touch & Mouse) ---
+    // --- Pointer Events ---
     this.board.addEventListener("pointerdown", (e) => {
       if (e.button !== 0) return;
       if (isMultiTouch) return;
@@ -566,7 +593,6 @@ const app = {
       startY = e.clientY;
       cell.classList.add("pressed");
 
-      // Double Tap Check
       const now = Date.now();
       if (now - lastTapTime < CONFIG.doubleTapDelay) {
         clearTimers();
@@ -576,7 +602,6 @@ const app = {
       }
       lastTapTime = now;
 
-      // Start Long Press Timer
       dragTimer = setTimeout(() => {
         startDrag(cell, e.clientX, e.clientY);
       }, CONFIG.longPressDelay);
@@ -585,11 +610,12 @@ const app = {
     this.board.addEventListener("pointermove", (e) => {
       if (e.pointerId !== pointerId) return;
 
-      // Dragging Phase
       if (isDragging) {
-        e.preventDefault(); // Stop Scroll
+        e.preventDefault(); 
         
-        // Use requestAnimationFrame to throttle heavy calculations
+        // オートスクロール判定
+        checkAutoScroll(e.clientY);
+
         if (!rafId) {
           rafId = requestAnimationFrame(() => {
             updateGhost(e.clientX, e.clientY);
@@ -600,9 +626,13 @@ const app = {
         return;
       }
 
-      // Pre-Drag Phase (Scroll Check)
-      const dist = Math.hypot(e.clientX - startX, e.clientY - startY);
-      if (dist > 8) { // If moved slightly, it's a scroll, not a hold
+      // 縦移動が不安定な原因：少しのズレでキャンセルされていたため、遊びを大きくする
+      const dx = Math.abs(e.clientX - startX);
+      const dy = Math.abs(e.clientY - startY);
+      
+      // 横移動はドラッグ意図が強いが、縦はスクロール意図が強い
+      // 縦に大きく動いたらスクロールとみなす
+      if (dy > 15 || dx > 20) { 
         clearTimers();
         const cell = e.target.closest(".cell");
         if (cell) cell.classList.remove("pressed");
@@ -610,7 +640,7 @@ const app = {
     });
 
     const handleDragMove = (x, y) => {
-      // Find Target Column
+      // 座標から列を計算
       const boardRect = this.board.getBoundingClientRect();
       const colWidth = boardRect.width / CONFIG.columnCount;
       let targetCol = Math.floor((x - boardRect.left) / colWidth);
@@ -620,22 +650,22 @@ const app = {
       const colEl = this.board.children[targetCol];
       if (!colEl) return;
       
-      // Find Target Index
       const cells = Array.from(colEl.children);
       let targetIdx = cells.length;
+      
+      // セルごとの判定
       for (let i = 0; i < cells.length; i++) {
         const rect = cells[i].getBoundingClientRect();
+        // カードの中心より上なら、その位置に挿入
         if (y < rect.top + rect.height / 2) {
           targetIdx = i;
           break;
         }
       }
 
-      // Optimization: Don't update if position hasn't changed
       if (targetCol === Number(dragEl.dataset.col) && 
          (targetIdx === Number(dragEl.dataset.idx) || targetIdx === Number(dragEl.dataset.idx) + 1)) return;
       
-      // Execute Move
       const item = state.columns[sourceCol][sourceIdx];
       state.columns[sourceCol].splice(sourceIdx, 1);
       
@@ -645,14 +675,12 @@ const app = {
       
       state.columns[targetCol].splice(finalTargetIdx, 0, item);
       
-      // DOM Update
       if (cells.length === 0 || targetIdx >= cells.length) {
         colEl.appendChild(dragEl);
       } else {
         colEl.insertBefore(dragEl, cells[targetIdx]);
       }
       
-      // Update Indices
       const updateDataset = (cIdx) => {
         Array.from(this.board.children[cIdx].children).forEach((ch, idx) => {
           ch.dataset.col = cIdx; ch.dataset.idx = idx;
@@ -668,6 +696,7 @@ const app = {
       if (pointerId && e.pointerId !== pointerId) return;
       
       clearTimers();
+      stopAutoScroll();
       if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
 
       const cell = e.target.closest(".cell");
@@ -683,40 +712,44 @@ const app = {
           }
         }
         this.save();
-        // Recalculate layout just in case
         this.render(); 
       }
-      
       pointerId = null;
     };
 
     this.board.addEventListener("pointerup", endInteraction);
     this.board.addEventListener("pointercancel", endInteraction);
     
-    // --- Touch Events (Pinch Zoom) ---
+    // --- Touch Events (Isolated for Pinch Zoom) ---
+    // ここでドラッグとは完全に分離したロジックにする
     let initialDist = 0;
     let initialZoom = 1.0;
 
     this.viewport.addEventListener("touchstart", (e) => {
       if (e.touches.length >= 2) {
         isMultiTouch = true;
-        clearTimers();
+        
+        // 既存のドラッグ処理を強制リセット
         if (isDragging) {
-          // Force cancel drag if pinch starts
           endInteraction({ pointerId: pointerId, target: dragEl || document.body });
         }
+        clearTimers();
         
-        // Init Zoom Logic
+        // ズーム初期値計算
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         initialDist = Math.hypot(dx, dy);
         initialZoom = state.zoom;
+        
+        // ネイティブの動作を抑止しないと、ページ全体がズームしたり選択されたりする可能性がある
+        // しかし、独自ズームを実装するなら preventDefault() が必要
+        e.preventDefault(); 
       }
     }, { passive: false });
 
     this.viewport.addEventListener("touchmove", (e) => {
       if (isMultiTouch && e.touches.length >= 2) {
-        e.preventDefault(); // Block Native Zoom
+        e.preventDefault(); // 画面全体のスクロールやネイティブズームを防ぐ
         
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -725,6 +758,9 @@ const app = {
         if (initialDist > 0) {
            const ratio = dist / initialDist;
            const newZoom = Math.min(Math.max(initialZoom * ratio, CONFIG.minZoom), CONFIG.maxZoom);
+           
+           // パフォーマンスのため、requestAnimationFrameを使う手もあるが
+           // ズームは即時反応が気持ちいいので直接セット
            state.zoom = newZoom;
            this.updateZoomStyle();
         }
@@ -734,6 +770,7 @@ const app = {
     this.viewport.addEventListener("touchend", (e) => {
       if (e.touches.length < 2) {
         isMultiTouch = false;
+        // 指が離れたら保存
         this.save();
       }
     });
