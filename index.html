@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (V36: Index & Ledger)</title>
+<title>Horse Board (V37: Bug Fix)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -384,9 +384,9 @@
 
 <script>
 /**
- * Horse Board Logic (V36: Index Jump & Ledger)
- * - 50-sound tab is now purely for jumping (Index).
- * - All List tab now has Sort and Filter controls (Ledger).
+ * Horse Board Logic (V37: Bug Fix - Close Modal Refresh)
+ * - Fixed: Unchecking in All List not reflecting on board due to missing re-render on modal close.
+ * - Added strict string conversion for ID matching to prevent type mismatch bugs.
  */
 
 const CONFIG = {
@@ -410,9 +410,8 @@ const state = {
   zoom: 1.0,
   renderItems: [],
   activeTab: 'sire',
-  // 管理台帳用の状態
-  listFilter: 'all', // all, checked, unchecked
-  listSort: 'id'     // id, name, sire
+  listFilter: 'all', 
+  listSort: 'id'     
 };
 
 const KANA_MAP = {
@@ -481,7 +480,7 @@ const app = {
     
     if (state.viewMode === 'my') {
       state.mySelectionIds.forEach(id => {
-        const horse = state.masterData.find(h => h.id === id);
+        const horse = state.masterData.find(h => String(h.id) === String(id));
         if (horse) items.push({ ...horse, type: 'card' });
       });
     } else if (state.viewMode === 'filter') {
@@ -491,8 +490,7 @@ const app = {
           .filter(h => h.sire && h.sire.trim() === targetSire)
           .map(h => ({ ...h, type: 'card' }));
       } 
-      // 50音フィルターモードは廃止したので削除
-      items.sort((a,b) => b.id.localeCompare(a.id)); 
+      items.sort((a,b) => String(b.id).localeCompare(String(a.id))); 
     }
     state.renderItems = items;
   },
@@ -553,7 +551,8 @@ const app = {
   
   toggleSelectionOnCard(id, btnEl, e) {
     e.stopPropagation(); 
-    const idx = state.mySelectionIds.indexOf(id);
+    // IDの型不一致を防ぐため文字列表現で比較
+    const idx = state.mySelectionIds.findIndex(sid => String(sid) === String(id));
     if (idx >= 0) {
         state.mySelectionIds.splice(idx, 1);
         btnEl.classList.remove('checked');
@@ -613,6 +612,11 @@ const app = {
   },
   closeModal(id) {
     document.getElementById(id).classList.remove('open');
+    // ★ここが修正点: モーダルを閉じたときにマイ選抜（ボード）を最新の状態に再描画する
+    if (state.viewMode === 'my') {
+      this.updateRenderItems();
+      this.render();
+    }
   },
   
   switchTab(tab) {
@@ -637,7 +641,6 @@ const app = {
     }
   },
 
-  // --- 種牡馬タブ (既存ロジック維持) ---
   renderSireTab(container) {
     const stats = {};
     state.masterData.forEach(h => {
@@ -664,7 +667,6 @@ const app = {
     container.appendChild(grid);
   },
 
-  // --- 50音（索引・ジャンプ） ---
   countKana(chars) {
     return state.masterData.filter(h => chars.includes(h.name.charAt(0))).length;
   },
@@ -719,7 +721,6 @@ const app = {
     container.appendChild(grid);
   },
 
-  // 50音の最終リスト（クリックで即ジャンプ）
   renderKanaFinalList(container, char, rowKey) {
     container.innerHTML = "";
     const backBtn = document.createElement('div');
@@ -745,7 +746,6 @@ const app = {
         </span>
         <span class="jump-sub">${h.sire}</span>
       `;
-      // クリックで即ジャンプ
       li.onclick = () => {
         this.jumpToHorse(h.id);
       };
@@ -754,9 +754,7 @@ const app = {
     container.appendChild(ul);
   },
 
-  // --- 全頭リスト（管理台帳） ---
   renderAllTab(container) {
-    // コントロールバーの生成
     const ctrl = document.createElement('div');
     ctrl.className = 'control-bar';
     ctrl.innerHTML = `
@@ -782,25 +780,23 @@ const app = {
 
   setListFilter(val) {
     state.listFilter = val;
-    this.switchTab('all'); // 再描画
+    this.switchTab('all'); 
   },
   
   setListSort(val) {
     state.listSort = val;
-    this.switchTab('all'); // 再描画
+    this.switchTab('all'); 
   },
 
   renderAllListItems(container) {
     let list = [...state.masterData];
 
-    // フィルター
     if (state.listFilter === 'checked') {
       list = list.filter(h => state.mySelectionIds.includes(h.id));
     } else if (state.listFilter === 'unchecked') {
       list = list.filter(h => !state.mySelectionIds.includes(h.id));
     }
 
-    // ソート
     if (state.listSort === 'name') {
       list.sort((a,b) => a.name.localeCompare(b.name, 'ja'));
     } else if (state.listSort === 'sire') {
@@ -810,8 +806,7 @@ const app = {
         return sa.localeCompare(sb, 'ja') || a.name.localeCompare(b.name, 'ja');
       });
     } else {
-      // ID順（文字列IDの場合はlocaleCompare）
-      list.sort((a,b) => a.id.localeCompare(b.id));
+      list.sort((a,b) => String(a.id).localeCompare(String(b.id)));
     }
 
     const ul = document.createElement('ul');
@@ -845,9 +840,9 @@ const app = {
     container.appendChild(ul);
   },
 
-  // 全頭リスト用: チェック切り替え（再描画なしで高速化）
   toggleSelectionAllTab(id) {
-    const idx = state.mySelectionIds.indexOf(id);
+    // ★ここが修正点: 型の不一致を防ぐため、文字列としてインデックスを検索
+    const idx = state.mySelectionIds.findIndex(sid => String(sid) === String(id));
     const el = document.getElementById(`chk_all_${id}`);
     
     if (idx >= 0) {
@@ -858,22 +853,14 @@ const app = {
       if(el) el.classList.add('checked');
     }
     this.saveUserState();
-    // ここではボードの再描画はしない（モーダル閉じた時に反映されればいい or ジャンプ時に反映）
-    // ただしviewModeがmyの場合は裏で整合性を取るためにデータ更新だけしておく
-    if(state.viewMode === 'my') {
-       this.updateRenderItems(); // renderは重いのでしない
-    }
   },
   
   toggleSelection(id) {
-    // 既存のメソッド（主に種牡馬タブ用）
-    const idx = state.mySelectionIds.indexOf(id);
-    // ... (処理はAllTabと同じだが、DOM IDなどが違う場合への対応)
-    // 簡略化のため、基本ロジックは同じ
+    const idx = state.mySelectionIds.findIndex(sid => String(sid) === String(id));
     if (idx >= 0) state.mySelectionIds.splice(idx, 1);
     else state.mySelectionIds.push(id);
     this.saveUserState();
-    this.switchTab(state.activeTab); // タブ内をリフレッシュ
+    this.switchTab(state.activeTab); 
   },
   
   jumpToHorse(id) {
@@ -883,14 +870,13 @@ const app = {
       this.resetView(); 
     }
     
-    // 未選択なら追加
     if (!state.mySelectionIds.includes(id)) {
       state.mySelectionIds.push(id);
       this.saveUserState();
       this.updateRenderItems();
       this.render();
     } else {
-      // 既に選択済みでもボードを最新にする
+      // 既にいてもボードを最新化してジャンプ
       this.updateRenderItems();
       this.render();
     }
