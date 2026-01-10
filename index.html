@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (V25: Sire Search Fix & Max Zoom)</title>
+<title>Horse Board (V26: Kana Drill-down)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -26,6 +26,7 @@
     touch-action: manipulation; 
   }
 
+  /* ツールバー */
   .toolbar {
     position: fixed; bottom: 0; left: 0; right: 0;
     height: 54px;
@@ -47,6 +48,7 @@
   .tool-btn.active { color: var(--accent); }
   .tool-btn:active { transform: scale(0.95); }
 
+  /* メイン画面 */
   .viewport {
     width: 100vw;
     height: calc(100vh - 54px);
@@ -66,6 +68,7 @@
     display: none; 
   }
 
+  /* ボード & カード */
   .board {
     display: grid;
     grid-template-columns: repeat(12, 1fr);
@@ -145,6 +148,7 @@
   .cell.pressed { transform: scale(0.95); transition: transform 0.1s; filter: brightness(1.2); }
   body.is-dragging { touch-action: none; overflow: hidden; }
 
+  /* ゴースト */
   .ghost {
     position: fixed; z-index: 9999; width: 120px;
     border-radius: 6px; overflow: hidden;
@@ -157,6 +161,7 @@
   .ghost .info-title { font-size: 12px; font-weight: bold; color: #fff; }
   .ghost .info-sub { display: block; font-size: 10px; color: #aaa; }
 
+  /* モーダル */
   .modal-overlay {
     position: fixed; top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(0,0,0,0.6); backdrop-filter: blur(5px);
@@ -194,6 +199,7 @@
     -webkit-overflow-scrolling: touch;
   }
   
+  /* 検索リスト */
   .search-list { list-style: none; padding: 0; margin: 0; }
   .search-item {
     display: flex; align-items: center; justify-content: space-between;
@@ -219,6 +225,7 @@
     font-size: 11px; color: #aaa; border: 1px solid #444;
   }
 
+  /* メニューリスト */
   .menu-list { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
   .menu-btn {
     background: #333; border: 1px solid #444; color: #eee;
@@ -227,13 +234,23 @@
   }
   .menu-btn i { width: 20px; text-align: center; color: #888; }
 
+  /* カテゴリグリッド */
   .cat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 16px; }
   .cat-btn {
     background: #252525; border: 1px solid #333; color: #ddd;
     padding: 12px; border-radius: 6px; text-align: center; font-size: 13px;
     cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
   }
   .cat-btn:active { background: #444; }
+  .cat-btn.disabled { opacity: 0.3; pointer-events: none; }
+  .cat-count { background: #444; padding: 2px 6px; border-radius: 10px; font-size: 11px; color: #ccc; }
+  
+  .back-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px; background: #222; border-bottom: 1px solid #333;
+    color: var(--accent); font-size: 14px; cursor: pointer; font-weight: bold;
+  }
   
   #fileInput { display: none; }
 </style>
@@ -304,15 +321,16 @@
 
 <script>
 /**
- * Horse Board Logic (v25: Sire Search Trim Fix & Max Zoom)
- * - Fixed: Sire search ignoring results due to invisible whitespace.
- * - Update: Max Zoom increased to 12.0 (1200%).
+ * Horse Board Logic (v26: Kana Drill-down & Count)
+ * - 50音検索を階層化 (行選択 -> 文字選択)
+ * - 各ボタンに該当件数を表示
+ * - 0件のボタンは無効化
  */
 
 const CONFIG = {
   columnCount: 12, 
   minZoom: 1.0,
-  maxZoom: 12.0, // ★上限を1200%へ
+  maxZoom: 12.0, 
   detailThreshold: 2.0, 
   storageKey: "horse_board_v23_db",
   
@@ -404,19 +422,28 @@ const app = {
       });
     } else if (state.viewMode === 'filter') {
       if (state.filterType === 'sire') {
-        // ★修正: 比較時に両方ともtrim()して余計な空白を無視する
         const targetSire = state.filterValue; 
         items = state.masterData
           .filter(h => h.sire && h.sire.trim() === targetSire)
           .map(h => ({ ...h, type: 'card' }));
       } else if (state.filterType === 'kana') {
-        const chars = KANA_MAP[state.filterValue] || [];
-        items = state.masterData
-          .filter(h => {
-             const firstChar = h.name.charAt(0);
-             return chars.includes(firstChar);
-          })
-          .map(h => ({ ...h, type: 'card' }));
+        // カナフィルタ処理（単一文字対応）
+        // フィルター値が "ア" など単一文字の場合と "ア行" の場合に対応
+        const target = state.filterValue;
+        
+        // 行指定（旧互換）か、文字指定か
+        if (KANA_MAP[target]) {
+            // 行指定（使わないかもだが一応）
+            const chars = KANA_MAP[target];
+            items = state.masterData
+              .filter(h => chars.includes(h.name.charAt(0)))
+              .map(h => ({ ...h, type: 'card' }));
+        } else {
+            // 文字指定（ア、ガ、ヴ...）
+            items = state.masterData
+              .filter(h => h.name.charAt(0) === target)
+              .map(h => ({ ...h, type: 'card' }));
+        }
       }
       items.sort((a,b) => b.id.localeCompare(a.id)); 
     }
@@ -515,11 +542,8 @@ const app = {
     if (tab === 'all') {
       this.renderSearchList(container, state.masterData);
     } else if (tab === 'sire') {
-      // ★修正: リスト作成時もtrim()して重複を排除する
       const sireSet = new Set();
-      state.masterData.forEach(h => {
-          if (h.sire) sireSet.add(h.sire.trim());
-      });
+      state.masterData.forEach(h => { if (h.sire) sireSet.add(h.sire.trim()); });
       const sires = [...sireSet].sort();
 
       const grid = document.createElement('div');
@@ -536,22 +560,78 @@ const app = {
       });
       container.appendChild(grid);
     } else if (tab === 'kana') {
-      const grid = document.createElement('div');
-      grid.className = 'cat-grid';
-      Object.keys(KANA_MAP).forEach(row => {
-        const btn = document.createElement('div');
-        btn.className = 'cat-btn';
-        btn.textContent = row;
-        btn.onclick = () => {
-           this.closeModal('searchModal');
-           this.applyFilter('kana', row);
-        };
-        grid.appendChild(btn);
-      });
-      container.appendChild(grid);
+      // 50音検索（階層トップ：行選択）
+      this.renderKanaRows(container);
     }
   },
   
+  // ★追加機能: 50音の階層表示ロジック
+  
+  // 指定された文字群に含まれる馬数を数える
+  countKana(chars) {
+    return state.masterData.filter(h => chars.includes(h.name.charAt(0))).length;
+  },
+  
+  // 第1段階: 行一覧を表示 (ア行...ワ行)
+  renderKanaRows(container) {
+    container.innerHTML = "";
+    const grid = document.createElement('div');
+    grid.className = 'cat-grid';
+    
+    Object.keys(KANA_MAP).forEach(rowKey => {
+      const chars = KANA_MAP[rowKey];
+      const count = this.countKana(chars);
+      
+      const btn = document.createElement('div');
+      btn.className = `cat-btn ${count === 0 ? 'disabled' : ''}`;
+      btn.innerHTML = `<span>${rowKey}</span> <span class="cat-count">${count}</span>`;
+      
+      if (count > 0) {
+        btn.onclick = () => {
+            this.renderKanaSub(container, rowKey);
+        };
+      }
+      grid.appendChild(btn);
+    });
+    container.appendChild(grid);
+  },
+  
+  // 第2段階: 文字一覧を表示 (ア, イ, ウ...)
+  renderKanaSub(container, rowKey) {
+    container.innerHTML = "";
+    
+    // 戻るボタン
+    const backBtn = document.createElement('div');
+    backBtn.className = 'back-btn';
+    backBtn.innerHTML = '<i class="fa-solid fa-chevron-left"></i> 戻る';
+    backBtn.onclick = () => {
+        this.renderKanaRows(container);
+    };
+    container.appendChild(backBtn);
+    
+    const grid = document.createElement('div');
+    grid.className = 'cat-grid';
+    
+    const chars = KANA_MAP[rowKey];
+    chars.forEach(char => {
+        // 1文字でカウント
+        const count = this.countKana([char]);
+        
+        const btn = document.createElement('div');
+        btn.className = `cat-btn ${count === 0 ? 'disabled' : ''}`;
+        btn.innerHTML = `<span>${char}</span> <span class="cat-count">${count}</span>`;
+        
+        if (count > 0) {
+            btn.onclick = () => {
+                this.closeModal('searchModal');
+                this.applyFilter('kana', char); // 1文字でフィルタ
+            };
+        }
+        grid.appendChild(btn);
+    });
+    container.appendChild(grid);
+  },
+
   renderSearchList(container, horses) {
     const ul = document.createElement('ul');
     ul.className = 'search-list';
@@ -614,11 +694,8 @@ const app = {
       const target = document.querySelector(`.cell[data-horse-id="${id}"]`);
       if (target) {
         target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        
-        // 0.8秒待ってから点滅開始
         setTimeout(() => {
              target.classList.add('highlight');
-             // 3回点滅(約3秒)後にクラスを外す
              setTimeout(() => target.classList.remove('highlight'), 3500);
         }, 800);
       } else {
