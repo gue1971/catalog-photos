@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (V42: Rich Detail)</title>
+<title>Horse Board (V43: Refined Detail)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -194,10 +194,9 @@
   .mini-check.checked { background: #666; color: #fff; }
   .mini-check i { pointer-events: none; }
 
-  /* ジャンプ時のアニメーション（上品な強調） */
   @keyframes neon-pulse {
     0%, 100% { transform: scale(1.0); border-color: #444; box-shadow: none; background-color: var(--card-bg); z-index: 1; }
-    50% { transform: scale(1.1); border-color: #fff; background-color: #443300; box-shadow: 0 0 50px rgba(255, 215, 0, 0.9); z-index: 1000; }
+    50% { transform: scale(1.1); border-color: #fff; background-color: #443300; box-shadow: 0 0 50px rgba(255, 215, 0, 0.9), inset 0 0 30px rgba(255, 215, 0, 0.4); z-index: 1000; }
   }
   .cell.highlight { animation: neon-pulse 1.0s ease-in-out infinite; }
 
@@ -288,17 +287,14 @@
     display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; 
     pointer-events: none;
   }
-  
   .item-check { 
     width: 20px; height: 20px; border-radius: 4px; border: 2px solid #555;
     display: flex; align-items: center; justify-content: center; flex-shrink: 0; 
     pointer-events: auto; position: relative; cursor: pointer;
   }
   .item-check::before {
-    content: ""; position: absolute;
-    top: -15px; left: -15px; right: -15px; bottom: -15px;
+    content: ""; position: absolute; top: -15px; left: -15px; right: -15px; bottom: -15px;
   }
-
   .item-check.checked { background: var(--accent); border-color: var(--accent); color: #fff; }
   .item-check.checked::after { content: "✔"; font-size: 12px; }
   
@@ -365,7 +361,7 @@
     cursor: pointer;
   }
 
-  /* ★ V42: 詳細カードモーダル */
+  /* ★ V43: 詳細カードモーダル (デザイン調整) */
   .detail-card {
     padding: 0;
     display: flex; flex-direction: column;
@@ -383,7 +379,10 @@
     background: #222;
   }
   .detail-name { font-size: 20px; font-weight: bold; margin-bottom: 4px; color: #fff; }
-  .detail-sub { font-size: 13px; color: #aaa; }
+  
+  /* 父・母の表示調整 */
+  .detail-sub { font-size: 13px; color: #ddd; display: flex; gap: 12px; align-items: center; }
+  .detail-sub span.label { color: #888; font-size: 11px; margin-right: 2px; }
   
   .detail-body {
     flex: 1; overflow-y: auto; padding: 20px;
@@ -392,7 +391,7 @@
     width: 100%; border-collapse: collapse; font-size: 14px;
   }
   .detail-table th, .detail-table td {
-    padding: 8px 0; border-bottom: 1px solid #333;
+    padding: 10px 0; border-bottom: 1px solid #333;
   }
   .detail-table th { width: 30%; color: #888; font-weight: normal; text-align: left; }
   .detail-table td { width: 70%; color: #eee; font-weight: 500; text-align: right; }
@@ -413,7 +412,6 @@
   .action-btn.netkeiba { border-color: #006400; background: rgba(0,100,0,0.2); }
   .action-btn.netkeiba i { color: #4caf50; }
   
-  /* 動画・PDFの制御用クラス */
   .action-btn.disabled { opacity: 0.3; pointer-events: none; filter: grayscale(100%); }
   .action-btn.movie i { color: #f44336; }
   .action-btn.pdf i { color: #fff; }
@@ -457,24 +455,24 @@
       </div>
       <div class="detail-header">
         <div class="detail-name" id="detailName">馬名</div>
-        <div class="detail-sub" id="detailSub">父馬名</div>
+        <div class="detail-sub" id="detailSub">
+          </div>
       </div>
       <div class="detail-body">
-        <table class="detail-table" id="detailTable">
-          </table>
+        <table class="detail-table" id="detailTable"></table>
       </div>
       <div class="detail-actions">
         <a id="btnNetkeiba" class="action-btn netkeiba" target="_blank">
           <i class="fa-solid fa-horse-head"></i>
           <span>netkeiba</span>
         </a>
-        <a id="btnMovie" class="action-btn movie disabled" target="_blank">
-          <i class="fa-brands fa-youtube"></i>
-          <span>募集動画</span>
-        </a>
         <a id="btnPdf" class="action-btn pdf disabled" target="_blank">
           <i class="fa-solid fa-file-pdf"></i>
           <span>カタログ</span>
+        </a>
+        <a id="btnMovie" class="action-btn movie disabled" target="_blank">
+          <i class="fa-brands fa-youtube"></i>
+          <span>募集動画</span>
         </a>
       </div>
     </div>
@@ -508,9 +506,12 @@
 
 <script>
 /**
- * Horse Board Logic (V42: Rich Detail & Auto Mother Name)
- * - Added logic to extract Mother Name from '募集馬名' by removing 'のXX'.
- * - Added button logic for Movie and PDF (controlled by JSON fields).
+ * Horse Board Logic (V43: Detail Card Refinement)
+ * - Header: Father [Sire] Mother [Mother]
+ * - Full Club Names Mapping
+ * - Birthday with Year (from ID)
+ * - Measurement formatted cleanly
+ * - Button order: Netkeiba -> PDF -> Movie
  */
 
 const CONFIG = {
@@ -551,6 +552,28 @@ const KANA_MAP = {
   "ヤ行": ["ヤ","ユ","ヨ","ャ","ュ","ョ"],
   "ラ行": ["ラ","リ","ル","レ","ロ"],
   "ワ行": ["ワ","ヲ","ン","ー"]
+};
+
+// クラブ名マッピング
+const CLUB_MAP = {
+  "インゼル": "インゼルサラブレッドクラブ",
+  "ウイン": "ウインレーシングクラブ",
+  "キャロット": "キャロットクラブ",
+  "サンデー": "サンデーサラブレッドクラブ",
+  "社台": "社台サラブレッドクラブ",
+  "シルク": "シルクホースクラブ",
+  "G1": "Ｇ１サラブレッドクラブ",
+  "ＤＭＭ": "ＤＭＭバヌーシー",
+  "DMM": "ＤＭＭバヌーシー",
+  "東京": "東京サラブレッドクラブ",
+  "ノルマンディー": "ノルマンディーオーナーズクラブ",
+  "広尾": "広尾サラブレッド倶楽部",
+  "ユニオン": "ユニオンオーナーズクラブ",
+  "ライオン": "サラブレッドクラブライオン",
+  "ラフィアン": "ラフィアンターフマンクラブ",
+  "ロード": "ロードサラブレッドオーナーズ",
+  "ターファイト": "ターファイトクラブ", 
+  "ローレル": "ローレルクラブ"
 };
 
 function generateUniqueKey() { return `obj_${Date.now()}_${state.nextId++}`; }
@@ -676,7 +699,7 @@ const app = {
     return el;
   },
   
-  // ★ V42: 詳細カード表示機能（母名抽出ロジック追加）
+  // ★ V43: 詳細カード表示 (デザイン調整版)
   showDetail(cell) {
     cell.classList.add("pressed");
     setTimeout(()=> cell.classList.remove("pressed"), 200);
@@ -685,28 +708,48 @@ const app = {
     const horse = state.masterData.find(h => String(h.id) === String(horseId));
     if (!horse) return;
 
-    // 画像と基本情報
+    // 画像と名前
     document.getElementById('detailImg').src = `assets/images/${horse.id}.jpeg`;
     document.getElementById('detailName').textContent = horse.name;
-    document.getElementById('detailSub').textContent = horse.sire || '-';
     
-    // 詳細情報
     const d = horse.detail || {};
     
-    // ★母名の抽出: 「〇〇の22」などの末尾「の数字」を削除
+    // ★ 母名の抽出
     let motherName = d['募集馬名'] || '';
-    motherName = motherName.replace(/の\d+$/, ''); // 正規表現で末尾除去
+    motherName = motherName.replace(/の\d+$/, '');
+    
+    // ★ ヘッダー: 父 [種牡馬] 母 [母馬]
+    const sireName = horse.sire || '-';
+    document.getElementById('detailSub').innerHTML = 
+      `<span class="label">父</span> ${sireName}　<span class="label">母</span> ${motherName}`;
+    
+    // ★ クラブ名の正式名称化
+    const rawClub = d['club'] || '';
+    const fullClub = CLUB_MAP[rawClub] || rawClub; // マップになければそのまま
+    
+    // ★ 誕生日の西暦付与 (IDの頭4桁を利用)
+    const birthYear = String(horse.id).substring(0, 4);
+    const birthDate = d['birthday'] || '';
+    const fullBirthday = birthDate ? `${birthYear}/${birthDate}` : '';
+    
+    // ★ 測尺データの整形
+    const h = d['体高'], c = d['胸囲'], t = d['管囲'];
+    let measureStr = "";
+    if (h) measureStr += `体高 ${h} / `;
+    if (c) measureStr += `胸囲 ${c} / `;
+    if (t) measureStr += `管囲 ${t}`;
+    if (measureStr.endsWith(' / ')) measureStr = measureStr.slice(0, -3); // 末尾削除
     
     const table = document.getElementById('detailTable');
     const fields = [
-      { k: '母', v: motherName }, // ★ここに母名を表示
+      { k: '募集馬名', v: d['募集馬名'] },
       { k: '母の父', v: d['dam_sire'] },
-      { k: 'クラブ', v: d['club'] },
+      { k: 'クラブ', v: fullClub },
       { k: '募集価格', v: d['price'] ? d['price'] + '万円' : null },
       { k: '厩舎', v: d['stable'] },
-      { k: '誕生日', v: d['birthday'] },
+      { k: '生年月日', v: fullBirthday },
       { k: '性別', v: d['sex'] },
-      { k: '測尺(体/胸/管)', v: (d['体高']&&d['胸囲']) ? `${d['体高']} / ${d['胸囲']} / ${d['管囲']}` : null },
+      { k: '測尺', v: measureStr },
       { k: '馬体重', v: d['馬体重'] ? d['馬体重'] + 'kg' : null }
     ];
     
@@ -715,7 +758,7 @@ const app = {
       .map(f => `<tr><th>${f.k}</th><td>${f.v}</td></tr>`)
       .join('');
 
-    // ボタンの状態制御 (JSONにlink_movie, link_pdfがあれば有効化)
+    // ボタン制御
     const btnNet = document.getElementById('btnNetkeiba');
     const btnMov = document.getElementById('btnMovie');
     const btnPdf = document.getElementById('btnPdf');
@@ -1183,7 +1226,6 @@ const app = {
       else if (e.key === "0") { state.zoom = 1.0; this.updateZoomStyle(); this.saveUserState(); e.preventDefault(); }
     });
     
-    // ★ V41: ダブルタップで詳細を開く
     const triggerShowDetail = (el) => {
       app.showDetail(el);
     };
@@ -1327,7 +1369,7 @@ const app = {
             cell.classList.remove("pressed");
             const now = Date.now();
             if (now - lastTapTime < CONFIG.doubleTapDelay) {
-                triggerShowDetail(cell); // ★ダブルタップで詳細を開く
+                triggerShowDetail(cell);
                 lastTapTime = 0;
             } else {
                 lastTapTime = now;
