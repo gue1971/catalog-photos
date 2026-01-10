@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (V27: Filter UX & Layout)</title>
+<title>Horse Board (V28: Smart Reflow)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -39,7 +39,6 @@
     transition: background 0.3s;
   }
   
-  /* 通常モードのボタン */
   .tool-btn {
     background: none; border: none;
     color: #888; display: flex; flex-direction: column; align-items: center;
@@ -49,11 +48,10 @@
   .tool-btn i { font-size: 20px; margin-bottom: 2px; }
   .tool-btn:active { transform: scale(0.95); }
 
-  /* ★フィルターモード用スタイル */
+  /* フィルターモード用ツールバー */
   .toolbar.mode-filter {
-    background: #004080; /* 青っぽくしてモード違いを強調 */
-    justify-content: space-between; /* 両端揃え */
-    gap: 0;
+    background: #002a55; 
+    justify-content: space-between; gap: 0;
   }
   .filter-status {
     color: #fff; font-size: 14px; font-weight: bold;
@@ -62,14 +60,13 @@
   .filter-status span { font-size: 10px; opacity: 0.8; font-weight: normal; }
   
   .back-btn-large {
-    background: #fff; color: #004080;
+    background: #fff; color: #002a55;
     border: none; border-radius: 20px;
     padding: 8px 20px; font-size: 14px; font-weight: bold;
     cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     display: flex; align-items: center; gap: 6px;
   }
   .back-btn-large:active { transform: scale(0.95); background: #eee; }
-
 
   .viewport {
     width: 100vw;
@@ -80,11 +77,14 @@
     touch-action: manipulation;
   }
 
-  /* ボード (通常グリッド) */
+  /* --- ボードレイアウト (2パターン) --- */
+
+  /* 1. 通常モード (マイ選抜): Grid固定レイアウト・地図拡大 */
   .board {
     display: grid;
     grid-template-columns: repeat(12, 1fr);
     gap: calc(var(--gap) * var(--zoom));
+    /* 幅をズーム倍率で広げる (はみ出しスクロール) */
     width: calc(100% * var(--zoom));
     padding: 8px;
     box-sizing: border-box;
@@ -92,17 +92,18 @@
     transform-origin: 0 0;
   }
 
-  /* ★ボード (フィルターモード: フレキシブル) */
+  /* 2. フィルターモード (検索結果): Flexリフローレイアウト */
   .board.mode-filter {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px;
-    width: 100%; /* ズーム依存を解除してリフローさせる */
-    transform: none; /* ズーム解除 */
-    padding-bottom: 100px;
+    flex-wrap: wrap;       /* 折り返しあり */
+    width: 100%;           /* 画面幅に固定 */
+    justify-content: flex-start;
+    align-content: flex-start;
+    gap: 0; /* gapはmarginで制御する */
+    padding: 8px;
   }
 
+  /* --- セルスタイル --- */
   .cell {
     position: relative;
     border-radius: calc(2px * var(--zoom));
@@ -113,13 +114,19 @@
     background: #333; height: auto; 
   }
 
-  /* ★フィルター時のセルスタイル上書き */
+  /* フィルターモード時のセルサイズ制御 (ここがキモ) */
   .board.mode-filter .cell {
+    /* 基準幅: 画面の1/6。これにzoomを掛けることで大きくなり、折り返される */
+    /* gap分のマージンを考慮して少し引く */
+    width: calc( (100% / 6) * var(--zoom) - 6px );
+    margin: 3px;
+    
+    /* 1枚がデカくなりすぎないように上限キャップ */
+    max-width: 90vw; 
+    
+    /* 角丸も固定気味に */
     border-radius: 4px;
-    /* 画面幅に合わせて伸縮する */
-    width: 140px; 
-    flex-grow: 1; 
-    max-width: 240px; /* 大きくなりすぎ防止 */
+    flex-grow: 0; flex-shrink: 0;
   }
 
   .cell.card {
@@ -128,44 +135,7 @@
     border: 1px solid #444;
   }
   
-  /* ★選択状態トグルボタン (カード右上) */
-  .selection-toggle {
-    position: absolute; top: 0; right: 0;
-    width: 36px; height: 36px;
-    z-index: 10; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .toggle-icon {
-    width: 20px; height: 20px;
-    background: rgba(0,0,0,0.5);
-    border: 2px solid #888; border-radius: 50%;
-    color: transparent; display: flex; align-items: center; justify-content: center;
-    font-size: 12px; transition: all 0.2s;
-  }
-  /* 選択されている時 */
-  .selection-toggle.active .toggle-icon {
-    background: var(--accent); border-color: var(--accent); color: #fff;
-    box-shadow: 0 0 8px var(--accent);
-  }
-  .selection-toggle.active .toggle-icon::after { content: "✔"; }
-
-  /* フィルターモード時はボタンを押しやすく少し大きく */
-  .board.mode-filter .selection-toggle {
-    width: 44px; height: 44px;
-  }
-  .board.mode-filter .toggle-icon {
-    width: 24px; height: 24px;
-  }
-
-
-  @keyframes flash {
-    0%, 100% { border-color: #444; box-shadow: none; transform: scale(1.0); z-index: 1; }
-    50% { border-color: #ff0; box-shadow: 0 0 30px #ff0; transform: scale(1.1); z-index: 100; }
-  }
-  .cell.highlight {
-    animation: flash 1s ease-in-out 3;
-  }
-
+  /* 画像 */
   .cell.card img {
     width: 100%; height: auto; display: block; 
     pointer-events: none; aspect-ratio: 4/3; 
@@ -184,10 +154,7 @@
     display: flex; flex-direction: column;
     justify-content: center; align-items: center;     
     flex-grow: 0; min-height: 20px; transition: min-height 0.2s;
-  }
-  /* フィルターモード時は情報エリアも少し大きく */
-  .board.mode-filter .cell.card .info-area {
-    min-height: 32px; padding: 4px;
+    position: relative; /* チェックボタンの基準 */
   }
 
   .info-title { 
@@ -195,14 +162,12 @@
     line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     max-width: 100%; margin-bottom: 0;
   }
-  .board.mode-filter .info-title { font-size: 13px; }
-
   .info-sub { 
     display: none; font-size: 10px; color: #aaa; 
     line-height: 1.1; white-space: nowrap;
   }
   
-  /* Zoom 2.0以上 OR フィルターモード は詳細表示 */
+  /* 詳細表示 (Zoom大 or フィルターモード) */
   .board.view-detail .cell.card .info-area,
   .board.mode-filter .cell.card .info-area {
     flex-direction: row; align-items: center; justify-content: center; gap: 4px; 
@@ -215,6 +180,31 @@
   .board.view-detail .info-sub::after,
   .board.mode-filter .info-sub::after { content: ")"; }
 
+  /* ★スマートなチェックボタン (通常は非表示) */
+  .mini-check {
+    display: none; /* マイ選抜モードでは消す */
+    position: absolute;
+    bottom: 1px; right: 2px; /* 右下に配置 */
+    font-size: 14px; color: #444;
+    cursor: pointer; z-index: 10;
+    text-shadow: 0 0 2px #000; /* 文字に重なっても見えるように */
+    padding: 4px; /* タップ判定を大きく */
+  }
+  /* フィルターモードでのみ表示 */
+  .board.mode-filter .mini-check { display: block; }
+  
+  /* チェックされた状態 */
+  .mini-check.checked { color: var(--accent); }
+
+
+  /* ハイライトアニメーション */
+  @keyframes flash {
+    0%, 100% { border-color: #444; box-shadow: none; transform: scale(1.0); z-index: 1; }
+    50% { border-color: #ff0; box-shadow: 0 0 30px #ff0; transform: scale(1.1); z-index: 100; }
+  }
+  .cell.highlight { animation: flash 1s ease-in-out 3; }
+
+  /* スペーサー */
   .cell.spacer {
     background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.1);
   }
@@ -276,7 +266,6 @@
     -webkit-overflow-scrolling: touch;
   }
   
-  /* 検索リスト */
   .search-list { list-style: none; padding: 0; margin: 0; }
   .search-item {
     display: flex; align-items: center; justify-content: space-between;
@@ -381,11 +370,10 @@
 
 <script>
 /**
- * Horse Board Logic (v27: Filter UX & Layout)
- * - Removed top indicator.
- * - Toolbar adapts to View Mode (Show/Hide Back button).
- * - Filter Mode: Flex layout, no spacers, larger cards.
- * - Card toggle button for quick Add/Remove.
+ * Horse Board Logic (v28: Smart Reflow & Smart Check)
+ * - Filter Mode: Reflow layout (Flexbox) + Zoom-based card sizing.
+ * - Start with 6 columns in Filter Mode.
+ * - Minimal Check button in Info Area (Filter Mode only).
  */
 
 const CONFIG = {
@@ -410,7 +398,7 @@ const state = {
   renderItems: [] 
 };
 
-// カナ分類マップ
+// カナ分類
 const KANA_MAP = {
   "ア行": ["ア","イ","ウ","エ","オ","ァ","ィ","ゥ","ェ","ォ","ヴ"],
   "カ行": ["カ","キ","ク","ケ","コ","ガ","ギ","グ","ゲ","ゴ","ヵ","ヶ"],
@@ -438,7 +426,7 @@ const app = {
       this.loadUserState();
       
       this.updateRenderItems();
-      this.updateUIState(); // 先にUIを作ってからRender
+      this.updateUIState();
       this.render();
       this.updateZoomStyle();
       this.attachEvents();
@@ -508,7 +496,6 @@ const app = {
     this.board.innerHTML = "";
     const displayList = [...state.renderItems];
     
-    // スペーサーはマイ選抜モードのみ生成
     if (state.viewMode === 'my') {
         this.board.classList.remove('mode-filter');
         const remainder = displayList.length % CONFIG.columnCount;
@@ -520,8 +507,8 @@ const app = {
            for (let i = 0; i < CONFIG.columnCount; i++) displayList.push({ type: 'spacer' });
         }
     } else {
-        // フィルターモードはFlexboxレイアウト
         this.board.classList.add('mode-filter');
+        // スペーサーなし
     }
 
     const fragment = document.createDocumentFragment();
@@ -543,39 +530,34 @@ const app = {
       const imgPath = `assets/images/${item.id}.jpeg`;
       const sireName = item.sire || "不明";
       
-      // 選択状態のチェック
       const isSelected = state.mySelectionIds.includes(item.id);
       
       el.innerHTML = `
-        <div class="selection-toggle ${isSelected ? 'active' : ''}" onclick="app.toggleSelectionOnCard('${item.id}', this, event)">
-            <div class="toggle-icon"></div>
-        </div>
         <img src="${imgPath}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
         <div class="placeholder-icon" style="display:none"><i class="fa-solid fa-horse-head"></i></div>
         <div class="info-area">
           <div class="info-title">${item.name}</div>
           <div class="info-sub">${sireName}</div>
+          <div class="mini-check ${isSelected ? 'checked' : ''}" onclick="app.toggleSelectionOnCard('${item.id}', this, event)">
+            <i class="fa-solid fa-circle-check"></i>
+          </div>
         </div>
       `;
     }
     return el;
   },
   
-  // カード上のチェックボタンでトグル（再描画なしで高速反映）
   toggleSelectionOnCard(id, btnEl, e) {
-    e.stopPropagation(); // ドラッグやジャンプの暴発を防ぐ
-    
+    e.stopPropagation(); 
     const idx = state.mySelectionIds.indexOf(id);
     if (idx >= 0) {
         state.mySelectionIds.splice(idx, 1);
-        btnEl.classList.remove('active');
+        btnEl.classList.remove('checked');
     } else {
         state.mySelectionIds.push(id);
-        btnEl.classList.add('active');
+        btnEl.classList.add('checked');
     }
     this.saveUserState();
-    // マイ選抜モードで見ている場合は即座に消えるのが正しい挙動だが
-    // 誤操作防止のため、次回描画時まで残す（あるいは即座に消すか？今回は即反映しない）
   },
 
   updateZoomStyle() {
@@ -590,7 +572,6 @@ const app = {
     }
   },
   
-  // ツールバーの書き換え（これがメイン）
   updateUIState() {
     if (state.viewMode === 'my') {
       this.toolbar.classList.remove('mode-filter');
@@ -798,7 +779,7 @@ const app = {
     state.filterValue = value;
     
     this.updateRenderItems();
-    this.updateUIState(); // ツールバー更新
+    this.updateUIState();
     this.render();
     this.viewport.scrollTop = 0;
   },
@@ -808,7 +789,7 @@ const app = {
     state.filterType = null;
     state.filterValue = null;
     this.updateRenderItems();
-    this.updateUIState(); // ツールバー戻す
+    this.updateUIState();
     this.render();
   },
 
@@ -913,6 +894,10 @@ const app = {
     this.board.addEventListener("pointerdown", (e) => {
       if (e.button !== 0) return;
       if (isMultiTouch) return;
+      
+      // チェックボタンのタップならドラッグしない
+      if (e.target.closest('.mini-check')) return;
+
       const cell = e.target.closest(".cell");
       if (!cell || cell.dataset.type !== 'card') return; 
 
@@ -979,7 +964,7 @@ const app = {
             const dragHtml = dragEl.innerHTML;
             const dragIdAttr = dragEl.dataset.horseId;
             
-            // チェック状態も同期（innerHTMLに含まれるため）
+            // Toggleボタンの状態も同期
             dragEl.innerHTML = targetCell.innerHTML;
             dragEl.dataset.horseId = targetCell.dataset.horseId;
             dragEl.classList.remove("is-placeholder"); 
