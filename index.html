@@ -216,7 +216,7 @@
 const CONFIG = {
   columnCount: 12, 
   minZoom: 1.0,
-  maxZoom: 10.0,
+  maxZoom: 12.0,
   detailThreshold: 2.0, 
   storageKey: "horse_board_v15_grid",
   
@@ -745,9 +745,6 @@ const app = {
            const newZoom = Math.min(Math.max(initialZoom * ratio, CONFIG.minZoom), CONFIG.maxZoom);
            state.zoom = newZoom;
            this.updateZoomStyle();
-           // ★追加：ここで基準を更新して、ピンチ中に累積できるようにする
-           initialDist = dist;
-           initialZoom = state.zoom;
         }
       }
     }, { passive: false });
