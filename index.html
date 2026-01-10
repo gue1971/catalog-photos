@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (V32: Smart Truncation)</title>
+<title>Horse Board (V33: Card Text Priority)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -149,12 +149,16 @@
     color: #555; font-size: calc(24px * var(--zoom));
   }
 
+  /* --- ★V33 修正ポイント: カード内のテキストエリア --- */
   .cell.card .info-area {
     padding: 2px 2px;
     background: var(--card-bg);
     display: flex; flex-direction: column;
     justify-content: center; align-items: center;     
     flex-grow: 0; min-height: 20px; transition: min-height 0.2s;
+    /* はみ出し対策 */
+    max-width: 100%;
+    overflow: hidden;
   }
 
   .info-title { 
@@ -165,19 +169,39 @@
   .info-sub { 
     display: none; font-size: 10px; color: #aaa; 
     line-height: 1.1; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; /* これがないと縮まない */
   }
   
+  /* 横並びモード（詳細表示 or フィルター表示）での優先順位制御 */
   .board.view-detail .cell.card .info-area,
   .board.mode-filter .cell.card .info-area {
-    flex-direction: row; align-items: center; justify-content: center; gap: 4px; 
+    flex-direction: row; 
+    align-items: center; 
+    justify-content: center; 
+    gap: 4px; 
+    flex-wrap: nowrap; /* 絶対に折り返さない */
   }
+
+  /* 馬名は縮みにくくする */
+  .board.view-detail .info-title,
+  .board.mode-filter .info-title {
+    flex-shrink: 1; /* 必要なら縮むが… */
+    min-width: 2em; /* 最低限の文字数は確保 */
+  }
+
+  /* 父馬名は積極的に縮める */
   .board.view-detail .info-sub,
-  .board.mode-filter .info-sub { display: inline-block; }
+  .board.mode-filter .info-sub { 
+    display: inline-block; 
+    flex-shrink: 10; /* 馬名の10倍縮みやすくする */
+    min-width: 0;    /* これ重要！Flexboxで文字省略させるために必須 */
+  }
   
   .board.view-detail .info-sub::before,
   .board.mode-filter .info-sub::before { content: "("; }
   .board.view-detail .info-sub::after,
   .board.mode-filter .info-sub::after { content: ")"; }
+  /* --- 修正ここまで --- */
 
   /* 地味なチェックボタン */
   .mini-check {
@@ -189,6 +213,7 @@
     font-size: 10px; color: #000; 
     cursor: pointer;
     margin-left: 4px; 
+    flex-shrink: 0; /* チェックマークは絶対に潰さない */
   }
   
   .board.mode-filter .mini-check { display: flex; }
@@ -276,40 +301,38 @@
   
   .item-left { 
     display: flex; align-items: center; gap: 12px; 
-    flex: 1; min-width: 0; /* Flexboxネスト時の省略記号対策 */
+    flex: 1; min-width: 0; 
   }
   .item-check { 
     width: 20px; height: 20px; border-radius: 4px; border: 2px solid #555;
     display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0; /* チェックボックスは縮ませない */
+    flex-shrink: 0; 
   }
   .item-check.checked { background: var(--accent); border-color: var(--accent); color: #fff; }
   .item-check.checked::after { content: "✔"; font-size: 12px; }
   
-  /* --- ★ここから修正: 馬名優先レイアウト --- */
   .item-info { 
     display: flex; 
-    flex-direction: row; /* 横並びにする */
-    align-items: baseline; /* ベースラインを揃える */
+    flex-direction: row; 
+    align-items: baseline; 
     gap: 8px; 
-    overflow: hidden; /* はみ出し防止 */
-    flex: 1; /* 余白を埋める */
+    overflow: hidden; 
+    flex: 1; 
   }
   
   .item-name { 
     font-size: 14px; font-weight: bold; color: #eee;
     white-space: nowrap;
-    flex-shrink: 0; /* ★馬名は絶対に縮めない */
+    flex-shrink: 0; 
   }
   
   .item-sub { 
     font-size: 11px; color: #888;
     white-space: nowrap; 
-    overflow: hidden; text-overflow: ellipsis; /* ★溢れたら父馬を...にする */
-    flex-shrink: 1; /* ★父馬の方を優先して縮める */
+    overflow: hidden; text-overflow: ellipsis; 
+    flex-shrink: 1; 
     min-width: 0; 
   }
-  /* --- 修正ここまで --- */
   
   .item-jump {
     padding: 6px 12px; background: #333; border-radius: 4px;
@@ -396,8 +419,8 @@
 
 <script>
 /**
- * Horse Board Logic (V32: Smart Truncation)
- * - Improved list item layout: Horse name persists, sire name truncates.
+ * Horse Board Logic (V33: Priority Fix for Card Text)
+ * - Fixed: Sire name collapsing instead of Horse name in card view.
  */
 
 const CONFIG = {
