@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (V29: Simple UI & Design)</title>
+<title>Horse Board (V30: Quick Re-Search)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -33,7 +33,6 @@
     background: rgba(0,0,0,0.9);
     backdrop-filter: blur(10px);
     display: flex; align-items: center; justify-content: center;
-    /* ボタン間の距離を調整 */
     gap: 60px; 
     padding: 0 16px; z-index: 10000;
     border-top: 1px solid rgba(255,255,255,0.15);
@@ -52,22 +51,35 @@
   /* フィルターモード用ツールバー */
   .toolbar.mode-filter {
     background: #002a55; 
-    justify-content: space-between; gap: 0;
+    justify-content: space-between; /* 左中右に配置 */
+    gap: 8px; /* 狭い画面対策 */
   }
+  
+  /* 真ん中のステータス表示 */
   .filter-status {
     color: #fff; font-size: 14px; font-weight: bold;
-    display: flex; flex-direction: column; line-height: 1.2;
+    display: flex; flex-direction: column; align-items: center;
+    line-height: 1.2;
+    flex: 1; /* 中央を占有 */
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .filter-status span { font-size: 10px; opacity: 0.8; font-weight: normal; }
   
-  .back-btn-large {
-    background: #fff; color: #002a55;
-    border: none; border-radius: 20px;
-    padding: 8px 20px; font-size: 14px; font-weight: bold;
-    cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    display: flex; align-items: center; gap: 6px;
+  /* フィルター用のボタン共通 */
+  .filter-btn {
+    background: rgba(255,255,255,0.15); color: #fff;
+    border: 1px solid rgba(255,255,255,0.3); border-radius: 20px;
+    padding: 8px 16px; font-size: 13px; font-weight: bold;
+    cursor: pointer; display: flex; align-items: center; gap: 6px;
+    white-space: nowrap;
   }
-  .back-btn-large:active { transform: scale(0.95); background: #eee; }
+  .filter-btn:active { transform: scale(0.95); background: rgba(255,255,255,0.25); }
+  
+  /* 右側の強調ボタン（戻る） */
+  .filter-btn.primary {
+    background: #fff; color: #002a55; border: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
 
   .viewport {
     width: 100vw;
@@ -79,8 +91,6 @@
   }
 
   /* --- ボードレイアウト --- */
-
-  /* 1. 通常モード */
   .board {
     display: grid;
     grid-template-columns: repeat(12, 1fr);
@@ -92,7 +102,6 @@
     transform-origin: 0 0;
   }
 
-  /* 2. フィルターモード */
   .board.mode-filter {
     display: flex;
     flex-wrap: wrap;
@@ -101,7 +110,6 @@
     align-content: flex-start;
     gap: 0; 
     padding: 8px;
-    /* ★修正: 余白を十分に確保（メニュー被り防止） */
     padding-bottom: 400px; 
   }
 
@@ -141,7 +149,6 @@
     color: #555; font-size: calc(24px * var(--zoom));
   }
 
-  /* 情報エリア */
   .cell.card .info-area {
     padding: 2px 2px;
     background: var(--card-bg);
@@ -160,7 +167,6 @@
     line-height: 1.1; white-space: nowrap;
   }
   
-  /* 詳細表示 */
   .board.view-detail .cell.card .info-area,
   .board.mode-filter .cell.card .info-area {
     flex-direction: row; align-items: center; justify-content: center; gap: 4px; 
@@ -173,31 +179,26 @@
   .board.view-detail .info-sub::after,
   .board.mode-filter .info-sub::after { content: ")"; }
 
-  /* ★地味なチェックボタン */
+  /* 地味なチェックボタン */
   .mini-check {
-    display: none; /* 通常時は非表示 */
+    display: none; 
     width: 18px; height: 18px;
-    background: #666; /* 背景は常にグレー */
+    background: #666; 
     border-radius: 50%;
     align-items: center; justify-content: center;
-    font-size: 10px; color: #000; /* オフ時は黒チェック */
+    font-size: 10px; color: #000; 
     cursor: pointer;
-    margin-left: 4px; /* 父名の横に隙間を空けて配置 */
-    /* position: static (Flexboxで並べるので絶対配置しない) */
+    margin-left: 4px; 
   }
   
-  /* フィルターモードでのみ表示 */
   .board.mode-filter .mini-check { display: flex; }
   
-  /* チェックされた状態（オン） */
   .mini-check.checked {
-    background: #666; /* 背景色は変えない（地味にする） */
-    color: #fff;      /* チェックマークだけ白にする */
+    background: #666; 
+    color: #fff;      
   }
   
-  /* アイコン自体のスタイル */
   .mini-check i { pointer-events: none; }
-
 
   @keyframes flash {
     0%, 100% { border-color: #444; box-shadow: none; transform: scale(1.0); z-index: 1; }
@@ -205,7 +206,6 @@
   }
   .cell.highlight { animation: flash 1s ease-in-out 3; }
 
-  /* スペーサー */
   .cell.spacer {
     background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.1);
   }
@@ -216,7 +216,6 @@
   .cell.pressed { transform: scale(0.95); transition: transform 0.1s; filter: brightness(1.2); }
   body.is-dragging { touch-action: none; overflow: hidden; }
 
-  /* ゴースト */
   .ghost {
     position: fixed; z-index: 9999; width: 120px;
     border-radius: 6px; overflow: hidden;
@@ -371,11 +370,10 @@
 
 <script>
 /**
- * Horse Board Logic (v29: Simple UI & Design Fix)
- * - Removed "My Selection" button from main toolbar.
- * - Increased padding-bottom for filter view.
- * - Smart Check Button: Positioned inline with Sire name.
- * - Check Button Design: Gray circle base, Black check (Off) / White check (On).
+ * Horse Board Logic (v30: Quick Re-Search & Tab Memory)
+ * - Added "Change Condition" button in Filter Mode toolbar.
+ * - Toolbar layout: [Change] [Status] [Back to MySelection].
+ * - Remembers the last active tab in search modal.
  */
 
 const CONFIG = {
@@ -397,7 +395,8 @@ const state = {
   filterType: null, 
   filterValue: null,
   zoom: 1.0,
-  renderItems: [] 
+  renderItems: [],
+  activeTab: 'all' // ★追加: 最後に開いたタブを記憶
 };
 
 // カナ分類
@@ -576,7 +575,6 @@ const app = {
   updateUIState() {
     if (state.viewMode === 'my') {
       this.toolbar.classList.remove('mode-filter');
-      // ★修正: マイ選抜ボタンを削除し、検索と設定のみに
       this.toolbar.innerHTML = `
         <button class="tool-btn" onclick="app.openSearchModal()">
           <i class="fa-solid fa-magnifying-glass"></i><span>検索・編集</span>
@@ -586,22 +584,27 @@ const app = {
         </button>
       `;
     } else {
+      // ★修正: フィルターモード時のツールバーに「条件変更」ボタンを追加
       this.toolbar.classList.add('mode-filter');
       this.toolbar.innerHTML = `
+        <button class="filter-btn" onclick="app.openSearchModal()">
+            <i class="fa-solid fa-magnifying-glass"></i> 条件変更
+        </button>
         <div class="filter-status">
             <span>表示中:</span>
             ${state.filterValue} (${state.renderItems.length}頭)
         </div>
-        <button class="back-btn-large" onclick="app.resetView()">
-            <i class="fa-solid fa-arrow-left"></i> マイ選抜に戻る
+        <button class="filter-btn primary" onclick="app.resetView()">
+            <i class="fa-solid fa-arrow-left"></i> マイ選抜へ
         </button>
       `;
     }
   },
 
+  // ★修正: 記憶しているタブを開く
   openSearchModal() {
     document.getElementById('searchModal').classList.add('open');
-    this.switchTab('all'); 
+    this.switchTab(state.activeTab); 
   },
   openSettingsModal() {
     document.getElementById('settingsModal').classList.add('open');
@@ -611,6 +614,8 @@ const app = {
   },
   
   switchTab(tab) {
+    state.activeTab = tab; // ★記憶
+    
     const tabs = document.querySelectorAll('.tab-btn');
     tabs.forEach(t => t.classList.remove('active'));
     if(tab === 'all') tabs[0].classList.add('active');
