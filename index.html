@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (V31: Sire Counts)</title>
+<title>Horse Board (V32: Smart Truncation)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -274,21 +274,47 @@
   }
   .search-item:active { background: #2a2a2a; }
   
-  .item-left { display: flex; align-items: center; gap: 12px; flex: 1; }
+  .item-left { 
+    display: flex; align-items: center; gap: 12px; 
+    flex: 1; min-width: 0; /* Flexboxネスト時の省略記号対策 */
+  }
   .item-check { 
     width: 20px; height: 20px; border-radius: 4px; border: 2px solid #555;
     display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; /* チェックボックスは縮ませない */
   }
   .item-check.checked { background: var(--accent); border-color: var(--accent); color: #fff; }
   .item-check.checked::after { content: "✔"; font-size: 12px; }
   
-  .item-info { display: flex; flex-direction: column; }
-  .item-name { font-size: 14px; font-weight: bold; color: #eee; }
-  .item-sub { font-size: 11px; color: #888; }
+  /* --- ★ここから修正: 馬名優先レイアウト --- */
+  .item-info { 
+    display: flex; 
+    flex-direction: row; /* 横並びにする */
+    align-items: baseline; /* ベースラインを揃える */
+    gap: 8px; 
+    overflow: hidden; /* はみ出し防止 */
+    flex: 1; /* 余白を埋める */
+  }
+  
+  .item-name { 
+    font-size: 14px; font-weight: bold; color: #eee;
+    white-space: nowrap;
+    flex-shrink: 0; /* ★馬名は絶対に縮めない */
+  }
+  
+  .item-sub { 
+    font-size: 11px; color: #888;
+    white-space: nowrap; 
+    overflow: hidden; text-overflow: ellipsis; /* ★溢れたら父馬を...にする */
+    flex-shrink: 1; /* ★父馬の方を優先して縮める */
+    min-width: 0; 
+  }
+  /* --- 修正ここまで --- */
   
   .item-jump {
     padding: 6px 12px; background: #333; border-radius: 4px;
     font-size: 11px; color: #aaa; border: 1px solid #444;
+    flex-shrink: 0; margin-left: 8px;
   }
 
   .menu-list { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
@@ -370,8 +396,8 @@
 
 <script>
 /**
- * Horse Board Logic (V31: Sire Counts)
- * - Added functionality to display total and checked counts in the Sire tab.
+ * Horse Board Logic (V32: Smart Truncation)
+ * - Improved list item layout: Horse name persists, sire name truncates.
  */
 
 const CONFIG = {
@@ -624,9 +650,6 @@ const app = {
     if (tab === 'all') {
       this.renderSearchList(container, state.masterData);
     } else if (tab === 'sire') {
-      // ------------------------------------------
-      // ★修正: 父馬の集計と表示フォーマット変更
-      // ------------------------------------------
       const stats = {};
       state.masterData.forEach(h => {
         const s = h.sire ? h.sire.trim() : "不明";
@@ -643,10 +666,7 @@ const app = {
         const info = stats[sire];
         const btn = document.createElement('div');
         btn.className = 'cat-btn';
-        
-        // 名前を左、数値を右に配置（cat-countクラスを利用）
         btn.innerHTML = `<span>${sire}</span> <span class="cat-count">${info.total} (${info.checked})</span>`;
-        
         btn.onclick = () => {
           this.closeModal('searchModal');
           this.applyFilter('sire', sire);
