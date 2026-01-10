@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (Safe Fix)</title>
+<title>Horse Board (Scroll Fix)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -22,10 +22,10 @@
     overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
-    touch-action: none;
+    /* ★修正: noneをやめて、パンとズームを許可する */
+    touch-action: pan-x pan-y pinch-zoom;
   }
 
-  /* ツールバー */
   .toolbar {
     position: fixed; bottom: 0; left: 0; right: 0;
     height: 48px;
@@ -51,6 +51,7 @@
     overflow: auto; 
     position: relative;
     -webkit-overflow-scrolling: touch; 
+    /* ★修正: ここも許可 */
     touch-action: pan-x pan-y pinch-zoom;
   }
 
@@ -66,85 +67,58 @@
     transform-origin: 0 0;
   }
 
-  /* セル共通 */
+  /* セル */
   .cell {
     position: relative;
     border-radius: calc(2px * var(--zoom));
     overflow: hidden;
+    /* ★修正: 個別のセルでもタッチ操作をブラウザに任せる（長押し判定はJSでやる） */
     touch-action: pan-x pan-y pinch-zoom;
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    /* 背景色がないと透明になって黒背景と同化するので指定 */
     background: #333; 
   }
 
-  /* カード */
   .cell.card {
     background: var(--card-bg);
     box-shadow: 0 2px 4px rgba(0,0,0,0.5);
     border: 1px solid #444;
   }
   
-  /* 画像 */
   .cell.card img {
-    width: 100%; 
-    height: auto;
-    display: block; 
-    pointer-events: none;
-    aspect-ratio: 4/3; 
-    object-fit: contain;
-    background: #000;
+    width: 100%; height: auto; display: block; 
+    pointer-events: none; aspect-ratio: 4/3; 
+    object-fit: contain; background: #000;
   }
   
-  /* 画像なしアイコン */
   .cell.card .placeholder-icon {
-    width: 100%; 
-    aspect-ratio: 4/3;
-    background: #000;
+    width: 100%; aspect-ratio: 4/3; background: #000;
     display: flex; align-items: center; justify-content: center;
-    color: #555;
-    font-size: calc(24px * var(--zoom));
+    color: #555; font-size: calc(24px * var(--zoom));
   }
 
-  /* 情報エリア（ここを安全に修正） */
   .cell.card .info-area {
     padding: calc(2px * var(--zoom)) calc(3px * var(--zoom));
     background: var(--card-bg);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    /* 自動(auto)はやめて、計算で最低高さを確保する */
-    /* 馬名(9px) + 父名(8px) + 余白(数px) = 約22px */
+    display: flex; flex-direction: column; justify-content: center;
     flex-grow: 1;
     min-height: calc(24px * var(--zoom));
   }
 
-  /* 馬名 */
   .info-title { 
-    font-weight: bold;
-    /* ズームしても最低9px相当を確保する計算 */
-    font-size: calc(9px * var(--zoom)); 
-    margin-bottom: 2px; /* calcを使わず固定値で安全に */
-    color: #eee;
-    line-height: 1.2;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-weight: bold; font-size: calc(9px * var(--zoom)); 
+    margin-bottom: 2px; color: #eee; line-height: 1.2;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
-  /* 父名：常時表示 */
   .info-sub { 
-    display: block !important;
-    font-size: calc(8px * var(--zoom));
-    color: #aaa;
-    line-height: 1.2;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: block !important; font-size: calc(8px * var(--zoom));
+    color: #aaa; line-height: 1.2;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
-  /* スペーサー（カードと同じ高さを確保するためのダミー要素） */
+  /* スペーサー */
   .cell.spacer {
     background: rgba(255,255,255,0.03);
     border: 1px dashed rgba(255,255,255,0.1);
@@ -154,15 +128,23 @@
   }
   .cell.spacer::after {
     content: ""; display: block; flex-grow: 1;
-    min-height: calc(24px * var(--zoom)); /* カードと合わせる */
+    min-height: calc(24px * var(--zoom)); 
     border-top: 1px solid rgba(255,255,255,0.05);
   }
 
   .cell.is-placeholder {
     opacity: 0.15; border: 1px dashed #666; filter: grayscale(100%);
   }
+  
+  /* ドラッグ開始待ちのアニメーション（押した感） */
   .cell.pressed {
     transform: scale(0.95); transition: transform 0.1s; filter: brightness(1.2);
+  }
+
+  /* ドラッグ中はスクロールを止めるためのクラス */
+  body.is-dragging {
+    touch-action: none; /* ドラッグ中だけはスクロール禁止 */
+    overflow: hidden;
   }
 
   /* ゴースト */
@@ -182,7 +164,6 @@
   .ghost .info-title { font-size: 12px; font-weight: bold; color: #fff; }
   .ghost .info-sub { font-size: 10px; color: #aaa; display: block; }
 
-  body.is-dragging { cursor: grabbing; }
   #fileInput { display: none; }
 </style>
 
@@ -209,24 +190,24 @@
 <input type="file" id="fileInput" accept=".json" onchange="app.importData(this)">
 
 <script>
-window.onerror = function(msg, url, line) {
-  alert("エラーが発生しました:\n" + msg + "\n行: " + line);
-};
-</script>
-
-<script>
 /**
- * Horse Board Logic (v18: Safe Grid & Visibility)
- * - Restored safe rendering logic to prevent black screen.
- * - Always shows Sire name (Info-Sub).
- * - Fixed height calculations.
+ * Horse Board Logic (v19: Scroll & Drag Fix)
+ * - Reverted CSS `touch-action` to allow native scrolling.
+ * - Improved drag detection: Drag only starts after Long Press without movement.
+ * - Any movement during wait cancels drag (prioritizes scroll).
  */
 
 const CONFIG = {
   columnCount: 12, 
   minZoom: 1.0,
   maxZoom: 5.0,
-  storageKey: "horse_board_v15_grid" 
+  storageKey: "horse_board_v15_grid",
+  
+  longPressDelay: 250, // 長押し判定時間
+  doubleTapDelay: 300,
+  
+  autoScrollZone: 60,
+  autoScrollSpeed: 15
 };
 
 const state = {
@@ -478,7 +459,6 @@ const app = {
     let dragEl = null;     
     let ghostEl = null;    
     let currentIndex = -1;
-
     let autoScrollRafId = null;
 
     window.addEventListener("keydown", (e) => {
@@ -532,7 +512,7 @@ const app = {
       if (isMultiTouch) return;
 
       isDragging = true;
-      document.body.classList.add("is-dragging");
+      document.body.classList.add("is-dragging"); // ここで初めてスクロール禁止
       
       dragEl = el;
       if (pointerId && dragEl.setPointerCapture) {
@@ -584,6 +564,7 @@ const app = {
       }
       lastTapTime = now;
 
+      // ★重要: いきなりドラッグ開始せず、タイマーをセット
       dragTimer = setTimeout(() => {
         startDrag(cell, e.clientX, e.clientY);
       }, CONFIG.longPressDelay);
@@ -592,6 +573,7 @@ const app = {
     this.board.addEventListener("pointermove", (e) => {
       if (e.pointerId !== pointerId) return;
 
+      // ドラッグ中は、デフォルト動作（スクロール）を止めて独自の移動処理
       if (isDragging) {
         e.preventDefault(); 
         checkAutoScroll(e.clientY);
@@ -600,17 +582,23 @@ const app = {
         return;
       }
 
+      // ドラッグ開始前（長押し待ち中）に動いたら
       const dx = Math.abs(e.clientX - startX);
       const dy = Math.abs(e.clientY - startY);
-      if (dx > 8 || dy > 8) { 
+      
+      // ★修正: 少しでも動いたら「これはスクロールだ」と判断してドラッグ待機を解除
+      if (dx > 5 || dy > 5) { 
         clearTimers();
         const cell = e.target.closest(".cell");
         if (cell) cell.classList.remove("pressed");
+        // preventDefault() しないので、ブラウザが勝手にスクロールしてくれる
       }
     });
 
     this.viewport.addEventListener("touchmove", (e) => {
+      // ドラッグ中だけは、ブラウザのスクロールを止める
       if (isDragging) e.preventDefault();
+      // それ以外（スクロール中）は preventDefault しない！
     }, { passive: false });
 
     const handleSwapLogic = (x, y) => {
@@ -622,9 +610,7 @@ const app = {
       const targetCell = target.closest('.cell');
       
       if (targetCell && targetCell !== dragEl && this.board.contains(targetCell)) {
-        
         const targetIndex = Number(targetCell.dataset.index);
-        
         const temp = state.items[currentIndex];
         state.items[currentIndex] = state.items[targetIndex];
         state.items[targetIndex] = temp;
@@ -651,7 +637,6 @@ const app = {
 
         dragEl = targetCell;
         currentIndex = targetIndex;
-        
         if(pointerId) { try{ dragEl.setPointerCapture(pointerId); }catch(e){} }
       }
     };
@@ -684,13 +669,14 @@ const app = {
     this.board.addEventListener("pointerup", endInteraction);
     this.board.addEventListener("pointercancel", endInteraction);
     
+    // ピンチズーム処理（これはブラウザネイティブのズームではなく自前の拡大縮小）
     let initialDist = 0;
     let initialZoom = 1.0;
 
     this.viewport.addEventListener("touchstart", (e) => {
       if (e.touches.length >= 2) {
         isMultiTouch = true;
-        if (isDragging) {
+        if (isDragging) { // ドラッグ中に2本指になったらキャンセル
            isDragging = false;
            document.body.classList.remove("is-dragging");
            if(ghostEl) ghostEl.remove();
@@ -703,7 +689,7 @@ const app = {
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         initialDist = Math.hypot(dx, dy);
         initialZoom = state.zoom;
-        e.preventDefault(); 
+        e.preventDefault(); // 2本指操作は自前でやるのでブラウザのズームは止める
       }
     }, { passive: false });
 
