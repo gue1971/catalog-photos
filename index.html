@@ -3,13 +3,14 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (Final Action Fix)</title>
+<title>Horse Board (Database Viewer)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
     --bg: #222;
     --card-bg: #111;
     --text-color: #eee;
+    --accent: #0078ff;
     --zoom: 1.0;
     --gap: 2px;
   }
@@ -22,38 +23,53 @@
     overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
-    /* ★修正: manipulationを指定して、OSのダブルタップズームを無効化する */
     touch-action: manipulation; 
   }
 
+  /* ツールバー (超シンプル化) */
   .toolbar {
     position: fixed; bottom: 0; left: 0; right: 0;
-    height: 48px;
-    background: rgba(0,0,0,0.85);
+    height: 54px;
+    background: rgba(0,0,0,0.9);
     backdrop-filter: blur(10px);
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex; align-items: center; justify-content: center;
+    gap: 32px;
     padding: 0 16px; z-index: 10000;
-    border-top: 1px solid rgba(255,255,255,0.1);
+    border-top: 1px solid rgba(255,255,255,0.15);
   }
-  .toolbar-group { display: flex; gap: 16px; align-items: center; }
-  .btn {
-    background: none; border: 1px solid rgba(255,255,255,0.3);
-    color: #ccc; border-radius: 4px; padding: 4px 12px;
-    font-size: 12px; cursor: pointer;
+  
+  .tool-btn {
+    background: none; border: none;
+    color: #888; display: flex; flex-direction: column; align-items: center;
+    font-size: 10px; gap: 4px; cursor: pointer;
+    width: 60px;
   }
-  .btn:active { background: rgba(255,255,255,0.2); }
-  .zoom-label { font-size: 12px; width: 40px; text-align: center; }
+  .tool-btn i { font-size: 20px; margin-bottom: 2px; }
+  .tool-btn.active { color: var(--accent); }
+  .tool-btn:active { transform: scale(0.95); }
 
+  /* ビューポート */
   .viewport {
     width: 100vw;
-    height: calc(100vh - 48px);
+    height: calc(100vh - 54px);
     overflow: auto; 
     position: relative;
     -webkit-overflow-scrolling: touch; 
-    /* ここもmanipulation */
     touch-action: manipulation;
   }
 
+  /* 現在のモード表示（画面上部） */
+  .mode-indicator {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+    background: rgba(0, 120, 255, 0.9); color: #fff;
+    padding: 6px 16px; border-radius: 20px;
+    font-size: 12px; font-weight: bold;
+    z-index: 5000; pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    display: none; /* マイ選抜以外で表示 */
+  }
+
+  /* ボード */
   .board {
     display: grid;
     grid-template-columns: repeat(12, 1fr);
@@ -61,118 +77,89 @@
     width: calc(100% * var(--zoom));
     padding: 8px;
     box-sizing: border-box;
-    padding-bottom: 200px;
+    padding-bottom: 300px; /* 検索ジャンプ時の余白確保 */
     transform-origin: 0 0;
   }
 
+  /* セル */
   .cell {
     position: relative;
     border-radius: calc(2px * var(--zoom));
     overflow: hidden;
-    /* 個別のセルもmanipulation */
     touch-action: manipulation;
-    display: flex;
-    flex-direction: column;
+    display: flex; flex-direction: column;
     box-sizing: border-box;
-    background: #333; 
-    height: auto; 
+    background: #333; height: auto; 
   }
 
+  /* カードスタイル */
   .cell.card {
     background: var(--card-bg);
     box-shadow: 0 2px 4px rgba(0,0,0,0.5);
     border: 1px solid #444;
   }
   
+  /* ジャンプ時のハイライトアニメーション */
+  @keyframes flash {
+    0% { border-color: #ff0; box-shadow: 0 0 20px #ff0; z-index: 100; transform: scale(1.1); }
+    100% { border-color: #444; box-shadow: 0 2px 4px rgba(0,0,0,0.5); z-index: 1; transform: scale(1.0); }
+  }
+  .cell.highlight {
+    animation: flash 1.5s ease-out;
+  }
+
   .cell.card img {
     width: 100%; height: auto; display: block; 
     pointer-events: none; aspect-ratio: 4/3; 
     object-fit: contain; background: #000;
   }
-  
   .cell.card .placeholder-icon {
     width: 100%; aspect-ratio: 4/3; background: #000;
     display: flex; align-items: center; justify-content: center;
     color: #555; font-size: calc(24px * var(--zoom));
   }
 
-  /* 情報エリア（中央揃え・高さ圧縮版） */
+  /* 情報エリア */
   .cell.card .info-area {
     padding: 2px 2px;
     background: var(--card-bg);
-    display: flex; 
-    flex-direction: column;
-    justify-content: center; 
-    align-items: center;     
-    flex-grow: 0; 
-    min-height: 20px; 
-    transition: min-height 0.2s;
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;     
+    flex-grow: 0; min-height: 20px; transition: min-height 0.2s;
   }
-
   .info-title { 
-    font-weight: bold;
-    font-size: 11px; 
-    color: #eee; 
-    line-height: 1.1; 
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    max-width: 100%;
-    margin-bottom: 0;
+    font-weight: bold; font-size: 11px; color: #eee; 
+    line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 100%; margin-bottom: 0;
   }
-
   .info-sub { 
-    display: none; 
-    font-size: 10px; 
-    color: #aaa; 
-    line-height: 1.1;
-    white-space: nowrap;
+    display: none; font-size: 10px; color: #aaa; 
+    line-height: 1.1; white-space: nowrap;
   }
-
+  /* Zoom 2.0以上 */
   .board.view-detail .cell.card .info-area {
-    flex-direction: row; 
-    align-items: center; 
-    justify-content: center;
-    gap: 4px; 
+    flex-direction: row; align-items: center; justify-content: center; gap: 4px; 
   }
-
   .board.view-detail .info-sub { display: inline-block; }
   .board.view-detail .info-sub::before { content: "("; }
   .board.view-detail .info-sub::after { content: ")"; }
 
   .cell.spacer {
-    background: rgba(255,255,255,0.03);
-    border: 1px dashed rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.1);
   }
-  .cell.spacer::before {
-    content: ""; display: block; width: 100%; aspect-ratio: 4/3;
-  }
-  .cell.spacer::after {
-    content: ""; display: block; flex-grow: 1;
-    min-height: 20px; 
-    border-top: 1px solid rgba(255,255,255,0.05);
-  }
+  .cell.spacer::before { content: ""; display: block; width: 100%; aspect-ratio: 4/3; }
+  .cell.spacer::after { content: ""; display: block; flex-grow: 1; min-height: 20px; border-top: 1px solid rgba(255,255,255,0.05); }
 
-  .cell.is-placeholder {
-    opacity: 0.15; border: 1px dashed #666; filter: grayscale(100%);
-  }
-  .cell.pressed {
-    transform: scale(0.95); transition: transform 0.1s; filter: brightness(1.2);
-  }
-  
-  /* ドラッグ中のみスクロール禁止 */
-  body.is-dragging {
-    touch-action: none; overflow: hidden;
-  }
+  .cell.is-placeholder { opacity: 0.15; border: 1px dashed #666; filter: grayscale(100%); }
+  .cell.pressed { transform: scale(0.95); transition: transform 0.1s; filter: brightness(1.2); }
+  body.is-dragging { touch-action: none; overflow: hidden; }
 
   /* ゴースト */
   .ghost {
-    position: fixed; z-index: 9999;
-    width: 120px;
+    position: fixed; z-index: 9999; width: 120px;
     border-radius: 6px; overflow: hidden;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.8);
-    pointer-events: none;
-    background: var(--card-bg);
-    border: 1px solid #aaa;
-    opacity: 0.95;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8); pointer-events: none;
+    background: var(--card-bg); border: 1px solid #aaa; opacity: 0.95;
     transform: translate(-50%, -110%) scale(1.1); 
   }
   .ghost img { width: 100%; aspect-ratio: 4/3; display: block; }
@@ -180,26 +167,149 @@
   .ghost .info-title { font-size: 12px; font-weight: bold; color: #fff; }
   .ghost .info-sub { display: block; font-size: 10px; color: #aaa; }
 
+  /* --- モーダル（検索・メニュー） --- */
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(5px);
+    z-index: 20000; display: none;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  
+  .modal-window {
+    width: 90%; max-width: 500px; height: 80vh;
+    background: #1a1a1a; border-radius: 12px;
+    display: flex; flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+    border: 1px solid #333; overflow: hidden;
+  }
+  
+  .modal-header {
+    padding: 16px; background: #222; border-bottom: 1px solid #333;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .modal-title { font-weight: bold; font-size: 16px; }
+  .modal-close { background: none; border: none; color: #aaa; font-size: 24px; cursor: pointer; }
+  
+  .modal-tabs {
+    display: flex; background: #111; border-bottom: 1px solid #333;
+  }
+  .tab-btn {
+    flex: 1; padding: 12px; background: none; border: none;
+    color: #666; font-size: 14px; cursor: pointer; border-bottom: 2px solid transparent;
+  }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: bold; }
+
+  .modal-content {
+    flex: 1; overflow-y: auto; padding: 0;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* 検索リスト */
+  .search-list { list-style: none; padding: 0; margin: 0; }
+  .search-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid #333;
+    cursor: pointer;
+  }
+  .search-item:active { background: #2a2a2a; }
+  
+  .item-left { display: flex; align-items: center; gap: 12px; flex: 1; }
+  .item-check { 
+    width: 20px; height: 20px; border-radius: 4px; border: 2px solid #555;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .item-check.checked { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .item-check.checked::after { content: "✔"; font-size: 12px; }
+  
+  .item-info { display: flex; flex-direction: column; }
+  .item-name { font-size: 14px; font-weight: bold; color: #eee; }
+  .item-sub { font-size: 11px; color: #888; }
+  
+  .item-jump {
+    padding: 6px 12px; background: #333; border-radius: 4px;
+    font-size: 11px; color: #aaa; border: 1px solid #444;
+  }
+
+  /* 設定メニュー用 */
+  .menu-list { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .menu-btn {
+    background: #333; border: 1px solid #444; color: #eee;
+    padding: 14px; border-radius: 8px; text-align: left; font-size: 14px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .menu-btn i { width: 20px; text-align: center; color: #888; }
+
+  /* カテゴリグリッド */
+  .cat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 16px; }
+  .cat-btn {
+    background: #252525; border: 1px solid #333; color: #ddd;
+    padding: 12px; border-radius: 6px; text-align: center; font-size: 13px;
+  }
+  
   #fileInput { display: none; }
 </style>
 
 </head>
 <body>
 
+<div id="modeIndicator" class="mode-indicator"></div>
+
 <div class="viewport" id="viewport">
   <div id="board" class="board"></div>
 </div>
 
 <div class="toolbar">
-  <div class="toolbar-group">
-    <button class="btn" onclick="app.addRow()"><i class="fa-solid fa-plus"></i> 行追加</button>
-    <button class="btn" onclick="app.addDummyCard()"><i class="fa-solid fa-horse"></i> 馬追加</button>
+  <button class="tool-btn" onclick="app.openSearchModal()">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span>検索・編集</span>
+  </button>
+  <button class="tool-btn" onclick="app.resetView()">
+    <i class="fa-solid fa-layer-group"></i>
+    <span id="mySelectionLabel">マイ選抜</span>
+  </button>
+  <button class="tool-btn" onclick="app.openSettingsModal()">
+    <i class="fa-solid fa-gear"></i>
+    <span>設定</span>
+  </button>
+</div>
+
+<div id="searchModal" class="modal-overlay">
+  <div class="modal-window">
+    <div class="modal-header">
+      <div class="modal-title">馬を検索・管理</div>
+      <button class="modal-close" onclick="app.closeModal('searchModal')">×</button>
+    </div>
+    <div class="modal-tabs">
+      <button class="tab-btn active" onclick="app.switchTab('all')">全頭リスト</button>
+      <button class="tab-btn" onclick="app.switchTab('sire')">父馬別</button>
+      <button class="tab-btn" onclick="app.switchTab('kana')">50音順</button>
+    </div>
+    <div class="modal-content" id="searchContent">
+      </div>
   </div>
-  <div class="toolbar-group">
-    <div class="zoom-label" id="zoomVal">100%</div>
-    <button class="btn" onclick="app.resetData()"><i class="fa-solid fa-trash"></i> Reset</button>
-    <button class="btn" onclick="app.exportData()"><i class="fa-solid fa-download"></i> JSON</button>
-    <button class="btn" onclick="document.getElementById('fileInput').click()"><i class="fa-solid fa-upload"></i></button>
+</div>
+
+<div id="settingsModal" class="modal-overlay">
+  <div class="modal-window" style="height: auto;">
+    <div class="modal-header">
+      <div class="modal-title">設定・データ</div>
+      <button class="modal-close" onclick="app.closeModal('settingsModal')">×</button>
+    </div>
+    <div class="menu-list">
+      <div style="font-size:12px; color:#666; margin-bottom:8px;">
+        ズーム: <span id="zoomDisp">100%</span>
+      </div>
+      <button class="menu-btn" onclick="app.exportData()">
+        <i class="fa-solid fa-download"></i> データを保存 (JSON)
+      </button>
+      <button class="menu-btn" onclick="document.getElementById('fileInput').click()">
+        <i class="fa-solid fa-upload"></i> データを読込
+      </button>
+      <button class="menu-btn" onclick="app.resetData()" style="color:#f55; border-color:#533;">
+        <i class="fa-solid fa-trash"></i> 全データをリセット
+      </button>
+    </div>
   </div>
 </div>
 
@@ -207,55 +317,59 @@
 
 <script>
 /**
- * Horse Board Logic (v22: Interaction Perfect Fix)
- * - CSS: `touch-action: manipulation` added (Fixes iPad Double Tap).
- * - JS: Strict move detection. Tap logic moved to `pointerup`.
- * (Fixes Smartphone scroll misfire).
+ * Horse Board Logic (v23: Database & Viewer Edition)
+ * - "My Selection" (Persistent, Sortable) vs "Filter View" (Temporary, Read-only).
+ * - Master Data Driven.
+ * - Search & Jump functionality.
+ * - Interaction fixes (iPad/Mobile) preserved.
  */
 
 const CONFIG = {
   columnCount: 12, 
   minZoom: 1.0,
-  maxZoom: 12.0,
+  maxZoom: 5.0,
   detailThreshold: 2.0, 
-  storageKey: "horse_board_v15_grid",
+  storageKey: "horse_board_v23_db", // Key変更（データ構造が変わるため）
   
-  longPressDelay: 300, // 少し長めに
-  doubleTapDelay: 350, // 少し余裕を持たせる
-  
-  autoScrollZone: 60,
-  autoScrollSpeed: 15,
-  
-  moveThreshold: 10 // 10px以上動いたらスクロールとみなす
+  longPressDelay: 300, 
+  doubleTapDelay: 350,
+  moveThreshold: 10
 };
 
+// 状態管理
 const state = {
-  items: [], 
+  masterData: [], // 全データ（JSON由来）
+  
+  // 保存されるデータ
+  mySelectionIds: [], // マイ選抜のIDリスト（並び順含む）
+  
+  // 一時的な表示状態
+  viewMode: 'my', // 'my' | 'filter'
+  filterType: null, // 'sire', 'kana', etc.
+  filterValue: null,
+  
   zoom: 1.0,
-  nextId: 1,
-  masterData: [] 
+  
+  // 表示用計算済みリスト
+  renderItems: [] 
 };
-
-function generateUniqueKey() { return `obj_${Date.now()}_${state.nextId++}`; }
 
 const app = {
   async init() {
     try {
       this.board = document.getElementById("board");
       this.viewport = document.getElementById("viewport");
-      this.zoomVal = document.getElementById("zoomVal");
+      this.modeIndicator = document.getElementById("modeIndicator");
+      this.mySelectionLabel = document.getElementById("mySelectionLabel");
+      this.zoomDisp = document.getElementById("zoomDisp");
       
       await this.loadMasterData();
-      const hasLocalData = this.loadBoardState();
-
-      if (state.masterData.length > 0) {
-         this.syncMasterData(hasLocalData);
-      }
+      this.loadUserState();
       
-      this.ensureGridCompleteness();
-
+      this.updateRenderItems();
       this.render();
       this.updateZoomStyle();
+      this.updateUIState();
       this.attachEvents();
     } catch(e) {
       alert("初期化エラー: " + e);
@@ -265,99 +379,98 @@ const app = {
   async loadMasterData() {
     try {
       const res = await fetch(`data/horses.json?t=${Date.now()}`);
-      if (res.ok) state.masterData = await res.json();
+      if (res.ok) {
+        const json = await res.json();
+        // IDで高速に引けるMapを作る必要はないが、一応重複排除など
+        state.masterData = json;
+      }
     } catch (e) { state.masterData = []; }
   },
 
-  loadBoardState() {
+  loadUserState() {
     const raw = localStorage.getItem(CONFIG.storageKey);
-    let loaded = false;
     if (raw) {
       try {
         const saved = JSON.parse(raw);
-        if (saved.columns && Array.isArray(saved.columns)) {
-          state.items = saved.columns.flat(); 
-          loaded = true;
-        } else if (saved.items && Array.isArray(saved.items)) {
-          state.items = saved.items;
-          loaded = true;
-        }
-        state.zoom = Math.max(saved.zoom || 1.0, CONFIG.minZoom);
+        state.mySelectionIds = saved.mySelectionIds || [];
+        state.zoom = saved.zoom || 1.0;
       } catch(e) { console.error(e); }
+    } else {
+      // 初回: 全データをマイ選抜に入れる（あるいは空にするか？要望では「全データ並べる」だった）
+      // ここではマスターデータの順に全IDを入れる
+      state.mySelectionIds = state.masterData.map(h => h.id);
     }
-    
-    if (!loaded || state.items.length === 0) {
-      state.items = Array.from({length: CONFIG.columnCount}, () => ({
-        uKey: generateUniqueKey(), type: "spacer"
-      }));
-    }
-    return loaded;
   },
 
-  ensureGridCompleteness() {
-    const remainder = state.items.length % CONFIG.columnCount;
+  saveUserState() {
+    const data = {
+      mySelectionIds: state.mySelectionIds,
+      zoom: state.zoom
+    };
+    localStorage.setItem(CONFIG.storageKey, JSON.stringify(data));
+  },
+
+  // 現在のモードに合わせて表示するアイテムを決定
+  updateRenderItems() {
+    let items = [];
+    
+    if (state.viewMode === 'my') {
+      // マイ選抜：保存されたID順に並べる
+      // マスターデータに存在しないID（削除された馬など）はスキップ
+      state.mySelectionIds.forEach(id => {
+        const horse = state.masterData.find(h => h.id === id);
+        if (horse) items.push({ ...horse, type: 'card' });
+      });
+      // 12列埋めるためのスペーサーは「表示時」に計算
+    } else if (state.viewMode === 'filter') {
+      // フィルターモード
+      if (state.filterType === 'sire') {
+        items = state.masterData
+          .filter(h => h.sire === state.filterValue)
+          .map(h => ({ ...h, type: 'card' }));
+      } else if (state.filterType === 'kana') {
+        // 簡易的な実装: カナの先頭文字で判定（データに読み仮名がない場合はnameの先頭）
+        items = state.masterData
+          .filter(h => this.checkKana(h.name, state.filterValue))
+          .map(h => ({ ...h, type: 'card' }));
+      }
+      // フィルター時はID順（あるいは年齢順）などでソート
+      items.sort((a,b) => b.id.localeCompare(a.id)); 
+    }
+    
+    state.renderItems = items;
+  },
+
+  checkKana(name, rowChar) {
+    // 厳密なカナ判定はデータが必要だが、簡易的に名前の先頭文字で判断
+    // 実際には horses.json に "yomi" などのフィールド推奨
+    // ここではデモとして「ア行」ならア～オを含むかで判定するロジックが必要だが
+    // 簡略化のため「全頭」以外は一旦父のみ実装とする（要望にあった父フィルター優先）
+    return true; 
+  },
+
+  // グリッドの整合性を保ちつつ描画
+  render() {
+    this.board.innerHTML = "";
+    
+    // アイテムを展開
+    const displayList = [...state.renderItems];
+    
+    // スペーサー埋め
+    const remainder = displayList.length % CONFIG.columnCount;
     if (remainder !== 0) {
       const needed = CONFIG.columnCount - remainder;
       for (let i = 0; i < needed; i++) {
-        state.items.push({ uKey: generateUniqueKey(), type: "spacer" });
+        displayList.push({ type: 'spacer', id: `sp_${i}` });
       }
     }
-  },
-
-  syncMasterData(hasLocalData) {
-    const existingIds = new Set();
-    state.items.forEach(item => { if (item.type === 'card' && item.id) existingIds.add(item.id); });
-
-    const newItems = [];
-    [...state.masterData].reverse().forEach(data => {
-      if (!existingIds.has(data.id)) {
-        const newItem = this.buildCardData(data);
-        if (hasLocalData) newItem.isNew = true;
-        newItems.push(newItem);
-      }
-    });
-
-    if (newItems.length > 0) {
-      if (!hasLocalData) {
-        state.items = newItems;
-      } else {
-        state.items.push(...newItems);
-      }
-      this.ensureGridCompleteness();
-      this.save();
+    // 少なくとも1行は表示
+    if (displayList.length === 0) {
+       for (let i = 0; i < CONFIG.columnCount; i++) displayList.push({ type: 'spacer', id: `sp_${i}` });
     }
-  },
 
-  buildCardData(data) {
-    return {
-      uKey: generateUniqueKey(),
-      type: "card",
-      id: data.id,
-      name: data.name,
-      sire: data.sire,
-      detail: data.detail || {},
-      isNew: false
-    };
-  },
-
-  getImagePath(id) { return `assets/images/${id}.jpeg`; },
-  getNetkeibaUrl(id) { return `https://db.netkeiba.com/horse/${id}`; },
-
-  save() {
-    const dataToSave = {
-      items: state.items.map(item => {
-        const { isNew, ...rest } = item; 
-        return rest;
-      }),
-      zoom: state.zoom
-    };
-    localStorage.setItem(CONFIG.storageKey, JSON.stringify(dataToSave));
-  },
-
-  render() {
-    this.board.innerHTML = "";
     const fragment = document.createDocumentFragment();
-    state.items.forEach((item, index) => {
+    displayList.forEach((item, index) => {
       const cell = this.createCell(item, index);
       fragment.appendChild(cell);
     });
@@ -367,16 +480,14 @@ const app = {
   createCell(item, index) {
     const el = document.createElement("div");
     el.className = `cell ${item.type}`;
-    if (item.isNew) el.classList.add("new-entry");
-
     el.dataset.index = index;
-    el.dataset.uKey = item.uKey;
     el.dataset.type = item.type;
-
-    if (item.type === "card") {
-      const imgPath = this.getImagePath(item.id);
+    
+    if (item.type === 'card') {
+      el.dataset.horseId = item.id; // ドラッグやジャンプ識別用
+      const imgPath = `assets/images/${item.id}.jpeg`;
       const sireName = item.sire || "不明";
-
+      
       el.innerHTML = `
         <img src="${imgPath}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
         <div class="placeholder-icon" style="display:none"><i class="fa-solid fa-horse-head"></i></div>
@@ -385,7 +496,6 @@ const app = {
           <div class="info-sub">${sireName}</div>
         </div>
       `;
-      el.dataset.horseId = item.id;
     }
     return el;
   },
@@ -393,7 +503,7 @@ const app = {
   updateZoomStyle() {
     if (!state.zoom || isNaN(state.zoom)) state.zoom = 1.0;
     document.documentElement.style.setProperty('--zoom', state.zoom);
-    this.zoomVal.textContent = Math.round(state.zoom * 100) + "%";
+    if(this.zoomDisp) this.zoomDisp.textContent = Math.round(state.zoom * 100) + "%";
     
     if (state.zoom >= CONFIG.detailThreshold) {
       this.board.classList.add("view-detail");
@@ -401,47 +511,188 @@ const app = {
       this.board.classList.remove("view-detail");
     }
   },
-
-  addRow() {
-    for(let i=0; i<CONFIG.columnCount; i++){
-      state.items.push({ uKey: generateUniqueKey(), type: "spacer" });
+  
+  updateUIState() {
+    if (state.viewMode === 'my') {
+      this.modeIndicator.style.display = 'none';
+      this.mySelectionLabel.textContent = "マイ選抜";
+      this.mySelectionLabel.parentElement.classList.add("active");
+    } else {
+      this.modeIndicator.style.display = 'block';
+      this.modeIndicator.textContent = `${state.filterValue} (表示のみ)`;
+      this.mySelectionLabel.textContent = "戻る";
+      this.mySelectionLabel.parentElement.classList.remove("active");
     }
-    this.render();
-    this.save();
-    setTimeout(() => {
-        this.viewport.scrollTop = this.viewport.scrollHeight;
-    }, 50);
-  },
-  
-  addDummyCard() {
-    if (state.masterData.length === 0) return;
-    const randomData = state.masterData[Math.floor(Math.random()*state.masterData.length)];
-    const newItem = this.buildCardData(randomData);
-    
-    state.items.push(newItem);
-    this.ensureGridCompleteness();
-    
-    this.render();
-    this.save();
-    
-    setTimeout(() => {
-        this.viewport.scrollTop = this.viewport.scrollHeight;
-    }, 50);
   },
 
-  resetData() {
-    if(!confirm("リセットしますか？")) return;
-    localStorage.removeItem(CONFIG.storageKey);
-    location.reload();
+  // --- モーダル・検索機能 ---
+  openSearchModal() {
+    document.getElementById('searchModal').classList.add('open');
+    this.switchTab('all'); // デフォルトは全リスト
+  },
+  openSettingsModal() {
+    document.getElementById('settingsModal').classList.add('open');
+  },
+  closeModal(id) {
+    document.getElementById(id).classList.remove('open');
   },
   
+  switchTab(tab) {
+    // タブUI更新
+    const tabs = document.querySelectorAll('.tab-btn');
+    tabs.forEach(t => t.classList.remove('active'));
+    // event.targetが取れないので簡易実装(順番依存)
+    if(tab === 'all') tabs[0].classList.add('active');
+    if(tab === 'sire') tabs[1].classList.add('active');
+    if(tab === 'kana') tabs[2].classList.add('active');
+    
+    const container = document.getElementById('searchContent');
+    container.innerHTML = "";
+    
+    if (tab === 'all') {
+      this.renderSearchList(container, state.masterData);
+    } else if (tab === 'sire') {
+      // 父馬リスト生成
+      const sires = [...new Set(state.masterData.map(h => h.sire).filter(s=>s))].sort();
+      const grid = document.createElement('div');
+      grid.className = 'cat-grid';
+      sires.forEach(sire => {
+        const btn = document.createElement('div');
+        btn.className = 'cat-btn';
+        btn.textContent = sire;
+        btn.onclick = () => {
+          this.closeModal('searchModal');
+          this.applyFilter('sire', sire);
+        };
+        grid.appendChild(btn);
+      });
+      container.appendChild(grid);
+    } else if (tab === 'kana') {
+      // 50音リスト（簡易）
+      const kanaRows = ["ア行","カ行","サ行","タ行","ナ行","ハ行","マ行","ヤ行","ラ行","ワ行"];
+      const grid = document.createElement('div');
+      grid.className = 'cat-grid';
+      kanaRows.forEach(row => {
+        const btn = document.createElement('div');
+        btn.className = 'cat-btn';
+        btn.textContent = row;
+        btn.style.opacity = "0.5"; // 未実装なので
+        // btn.onclick = ...
+        grid.appendChild(btn);
+      });
+      container.appendChild(grid);
+    }
+  },
+  
+  renderSearchList(container, horses) {
+    const ul = document.createElement('ul');
+    ul.className = 'search-list';
+    
+    const mySet = new Set(state.mySelectionIds);
+    
+    horses.forEach(h => {
+      const isChecked = mySet.has(h.id);
+      const li = document.createElement('li');
+      li.className = 'search-item';
+      li.innerHTML = `
+        <div class="item-left" onclick="app.toggleSelection('${h.id}')">
+          <div class="item-check ${isChecked ? 'checked' : ''}" id="chk_${h.id}"></div>
+          <div class="item-info">
+            <div class="item-name">${h.name}</div>
+            <div class="item-sub">${h.sire}</div>
+          </div>
+        </div>
+        <div class="item-jump" onclick="app.jumpToHorse('${h.id}')">
+          <i class="fa-solid fa-location-arrow"></i> ジャンプ
+        </div>
+      `;
+      ul.appendChild(li);
+    });
+    container.appendChild(ul);
+  },
+  
+  // マイ選抜への追加・削除
+  toggleSelection(id) {
+    const idx = state.mySelectionIds.indexOf(id);
+    const el = document.getElementById(`chk_${id}`);
+    
+    if (idx >= 0) {
+      state.mySelectionIds.splice(idx, 1);
+      if(el) el.classList.remove('checked');
+    } else {
+      state.mySelectionIds.push(id);
+      if(el) el.classList.add('checked');
+    }
+    this.saveUserState();
+    // 裏でレンダリング更新しておくとスムーズ
+    if (state.viewMode === 'my') {
+        this.updateRenderItems();
+        this.render();
+    }
+  },
+  
+  // 指定の馬へジャンプ（必要ならマイ選抜に追加して表示）
+  jumpToHorse(id) {
+    this.closeModal('searchModal');
+    
+    // もしフィルターモードで、その馬が含まれていないならマイ選抜に戻す
+    // ただしユーザーは「その馬を見たい」ので、マイ選抜モードに戻るのが自然
+    if (state.viewMode !== 'my') {
+      this.resetView(); 
+    }
+    
+    // マイ選抜に入っているか確認
+    if (!state.mySelectionIds.includes(id)) {
+      // 入ってなければ追加
+      state.mySelectionIds.push(id);
+      this.saveUserState();
+      this.updateRenderItems();
+      this.render();
+    }
+    
+    // DOMが更新されるのを待ってスクロール
+    setTimeout(() => {
+      const target = document.querySelector(`.cell[data-horse-id="${id}"]`);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.classList.add('highlight');
+        setTimeout(() => target.classList.remove('highlight'), 1500);
+      } else {
+        alert("表示できませんでした");
+      }
+    }, 100);
+  },
+  
+  applyFilter(type, value) {
+    state.viewMode = 'filter';
+    state.filterType = type;
+    state.filterValue = value;
+    
+    this.updateRenderItems();
+    this.render();
+    this.updateUIState();
+    // 上に戻す
+    this.viewport.scrollTop = 0;
+  },
+  
+  resetView() {
+    state.viewMode = 'my';
+    state.filterType = null;
+    state.filterValue = null;
+    this.updateRenderItems();
+    this.render();
+    this.updateUIState();
+  },
+
+  // --- データ管理 ---
   exportData() {
-    const str = JSON.stringify({ items: state.items }, null, 2);
+    const data = { mySelectionIds: state.mySelectionIds, zoom: state.zoom };
+    const str = JSON.stringify(data, null, 2);
     const blob = new Blob([str], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `horse_board_grid.json`;
+    a.download = `horse_board_db.json`;
     a.click();
     URL.revokeObjectURL(url);
   },
@@ -453,25 +704,26 @@ const app = {
     reader.onload = (e) => {
       try {
         const json = JSON.parse(e.target.result);
-        if (json.items) {
-          state.items = json.items;
-          this.ensureGridCompleteness();
-          this.render();
-          this.save();
-          alert("インポート完了");
-        } else if (json.columns) {
-            state.items = json.columns.flat();
-            this.ensureGridCompleteness();
-            this.render();
-            this.save();
-            alert("インポート完了（旧形式を変換）");
+        if (json.mySelectionIds) {
+          state.mySelectionIds = json.mySelectionIds;
+          state.zoom = json.zoom || 1.0;
+          this.saveUserState();
+          this.resetView(); // マイ選抜に戻して再描画
+          alert("設定を読み込みました");
         }
-      } catch(err) { alert("エラー: " + err); }
+      } catch(err) { alert("データ形式が違います"); }
     };
     reader.readAsText(file);
     input.value = "";
   },
+  
+  resetData() {
+    if(!confirm("マイ選抜リストをリセットして全馬表示に戻しますか？")) return;
+    localStorage.removeItem(CONFIG.storageKey);
+    location.reload();
+  },
 
+  // --- イベント系 (Drag & Zoom & DoubleTap) ---
   attachEvents() {
     let pointerId = null;
     let startX=0, startY=0;
@@ -480,63 +732,34 @@ const app = {
     
     let isDragging = false;
     let isMultiTouch = false;
-    let isMoving = false; // 移動中かどうかのフラグ
+    let isMoving = false;
     
     let dragEl = null;     
     let ghostEl = null;    
     let currentIndex = -1;
-    let autoScrollRafId = null;
 
+    // Zoom shortcuts (PC)
     window.addEventListener("keydown", (e) => {
       if (e.target.tagName === 'INPUT') return;
       if (e.key === "+" || e.key === "=") { this.applyZoom(0.1); e.preventDefault(); }
       else if (e.key === "-") { this.applyZoom(-0.1); e.preventDefault(); }
-      else if (e.key === "0") { state.zoom = 1.0; this.updateZoomStyle(); this.save(); e.preventDefault(); }
+      else if (e.key === "0") { state.zoom = 1.0; this.updateZoomStyle(); this.saveUserState(); e.preventDefault(); }
     });
-
-    const clearTimers = () => {
-      if (dragTimer) clearTimeout(dragTimer);
-      dragTimer = null;
-    };
-
+    
+    // Netkeiba open
     const showDetail = (el) => {
       el.classList.add("pressed");
       setTimeout(()=> el.classList.remove("pressed"), 200);
       const horseId = el.dataset.horseId;
-      if (horseId) window.open(this.getNetkeibaUrl(horseId), '_blank'); 
+      if (horseId) window.open(`https://db.netkeiba.com/horse/${horseId}`, '_blank'); 
     };
 
-    const stopAutoScroll = () => {
-      if (autoScrollRafId) { cancelAnimationFrame(autoScrollRafId); autoScrollRafId = null; }
-    };
-
-    const checkAutoScroll = (y) => {
-      stopAutoScroll();
-      if (!isDragging) return;
-
-      const vHeight = this.viewport.clientHeight;
-      const rect = this.viewport.getBoundingClientRect();
-      const relativeY = y - rect.top;
-
-      let scrollSpeed = 0;
-      if (relativeY < CONFIG.autoScrollZone) {
-        scrollSpeed = -CONFIG.autoScrollSpeed * (1 - relativeY / CONFIG.autoScrollZone);
-      } else if (relativeY > vHeight - CONFIG.autoScrollZone) {
-        scrollSpeed = CONFIG.autoScrollSpeed * (1 - (vHeight - relativeY) / CONFIG.autoScrollZone);
-      }
-
-      if (scrollSpeed !== 0) {
-        const loop = () => {
-          this.viewport.scrollTop += scrollSpeed;
-          autoScrollRafId = requestAnimationFrame(loop);
-        };
-        loop();
-      }
-    };
-
+    // Drag Start
     const startDrag = (el, x, y) => {
-      if (isMultiTouch) return;
-      if (isMoving) return; // 移動していたらドラッグしない
+      // フィルターモード中はドラッグ禁止（並び順を破壊するため）
+      if (state.viewMode !== 'my') return;
+      
+      if (isMultiTouch || isMoving) return;
 
       isDragging = true;
       document.body.classList.add("is-dragging"); 
@@ -552,11 +775,9 @@ const app = {
       ghostEl = el.cloneNode(true);
       ghostEl.className = "ghost";
       ghostEl.classList.remove("is-placeholder", "pressed");
-      
       const rect = el.getBoundingClientRect();
       ghostEl.style.width = rect.width + "px";
       ghostEl.style.height = rect.height + "px";
-      
       document.body.appendChild(ghostEl);
       updateGhost(x, y);
       
@@ -573,22 +794,15 @@ const app = {
     this.board.addEventListener("pointerdown", (e) => {
       if (e.button !== 0) return;
       if (isMultiTouch) return;
-
       const cell = e.target.closest(".cell");
-      if (!cell) return;
+      if (!cell || cell.dataset.type !== 'card') return; // スペーサーは掴めない
 
       pointerId = e.pointerId;
-      startX = e.clientX; 
-      startY = e.clientY;
-      isMoving = false; // リセット
-      
+      startX = e.clientX; startY = e.clientY;
+      isMoving = false;
       cell.classList.add("pressed");
 
-      // ダブルタップ判定はここではやらない！(pointerupでやる)
-      
-      // 長押しドラッグのタイマー開始
       dragTimer = setTimeout(() => {
-        // もし指が動いていなければドラッグ開始
         if (!isMoving) startDrag(cell, e.clientX, e.clientY);
       }, CONFIG.longPressDelay);
     });
@@ -598,7 +812,6 @@ const app = {
 
       if (isDragging) {
         e.preventDefault(); 
-        checkAutoScroll(e.clientY);
         updateGhost(e.clientX, e.clientY);
         handleSwapLogic(e.clientX, e.clientY);
         return;
@@ -606,21 +819,20 @@ const app = {
 
       const dx = Math.abs(e.clientX - startX);
       const dy = Math.abs(e.clientY - startY);
-      
-      // 閾値を超えたら「移動(スクロール)」とみなす
       if (dx > CONFIG.moveThreshold || dy > CONFIG.moveThreshold) { 
         isMoving = true;
-        clearTimers(); // ドラッグ待機キャンセル
+        if (dragTimer) clearTimeout(dragTimer);
         const cell = e.target.closest(".cell");
         if (cell) cell.classList.remove("pressed");
       }
     });
 
-    // Handle touch scrolling behavior
+    // Touch Scroll
     this.viewport.addEventListener("touchmove", (e) => {
       if (isDragging) e.preventDefault();
     }, { passive: false });
 
+    // Swap Logic (Array manipulation)
     const handleSwapLogic = (x, y) => {
       if (ghostEl) ghostEl.style.display = 'none';
       let target = document.elementFromPoint(x, y);
@@ -629,73 +841,67 @@ const app = {
       if (!target) return;
       const targetCell = target.closest('.cell');
       
-      if (targetCell && targetCell !== dragEl && this.board.contains(targetCell)) {
+      if (targetCell && targetCell !== dragEl && this.board.contains(targetCell) && targetCell.dataset.type === 'card') {
         const targetIndex = Number(targetCell.dataset.index);
-        const temp = state.items[currentIndex];
-        state.items[currentIndex] = state.items[targetIndex];
-        state.items[targetIndex] = temp;
-
-        // Swap DOM visual
-        const dragHtml = dragEl.innerHTML;
-        const dragClass = dragEl.className;
-        const dragId = dragEl.dataset.horseId;
-        const dragKey = dragEl.dataset.uKey;
-        const dragType = dragEl.dataset.type;
         
-        dragEl.innerHTML = targetCell.innerHTML;
-        dragEl.className = targetCell.className;
-        dragEl.dataset.horseId = targetCell.dataset.horseId || "";
-        dragEl.dataset.uKey = targetCell.dataset.uKey;
-        dragEl.dataset.type = targetCell.dataset.type;
-        dragEl.classList.remove("is-placeholder"); 
+        // 配列（マイ選抜ID）の並び替え
+        const fromId = dragEl.dataset.horseId;
+        const toId = targetCell.dataset.horseId;
+        
+        const fromIdxState = state.mySelectionIds.indexOf(fromId);
+        const toIdxState = state.mySelectionIds.indexOf(toId);
+        
+        if (fromIdxState >= 0 && toIdxState >= 0) {
+            // Swap in state
+            const temp = state.mySelectionIds[fromIdxState];
+            state.mySelectionIds[fromIdxState] = state.mySelectionIds[toIdxState];
+            state.mySelectionIds[toIdxState] = temp;
+            
+            // Swap in renderItems (to keep sync)
+            const tempItem = state.renderItems[currentIndex];
+            state.renderItems[currentIndex] = state.renderItems[targetIndex];
+            state.renderItems[targetIndex] = tempItem;
 
-        targetCell.innerHTML = dragHtml;
-        targetCell.className = dragClass;
-        targetCell.dataset.horseId = dragId || "";
-        targetCell.dataset.uKey = dragKey;
-        targetCell.dataset.type = dragType;
-        targetCell.classList.add("is-placeholder");
+            // DOM Swap
+            const dragHtml = dragEl.innerHTML;
+            const dragIdAttr = dragEl.dataset.horseId;
+            
+            dragEl.innerHTML = targetCell.innerHTML;
+            dragEl.dataset.horseId = targetCell.dataset.horseId;
+            dragEl.classList.remove("is-placeholder"); 
 
-        dragEl = targetCell;
-        currentIndex = targetIndex;
-        if(pointerId) { try{ dragEl.setPointerCapture(pointerId); }catch(e){} }
+            targetCell.innerHTML = dragHtml;
+            targetCell.dataset.horseId = dragIdAttr;
+            targetCell.classList.add("is-placeholder");
+
+            dragEl = targetCell;
+            currentIndex = targetIndex;
+            if(pointerId) { try{ dragEl.setPointerCapture(pointerId); }catch(e){} }
+        }
       }
     };
 
     const endInteraction = (e) => {
       if (pointerId && e.pointerId !== pointerId) return;
-      
-      clearTimers();
-      stopAutoScroll();
+      if (dragTimer) clearTimeout(dragTimer);
 
       const cell = e.target.closest(".cell");
       
       if (isDragging) {
-        // ドラッグ終了処理
         isDragging = false;
         document.body.classList.remove("is-dragging");
         if (ghostEl) ghostEl.remove();
-        if (dragEl) {
-          dragEl.classList.remove("is-placeholder");
-          if (dragEl.releasePointerCapture && pointerId) {
-             try { dragEl.releasePointerCapture(pointerId); } catch(e){}
-          }
-        }
+        if (dragEl) dragEl.classList.remove("is-placeholder");
         if (cell) cell.classList.remove("pressed");
-        this.save();
+        this.saveUserState(); // 保存
       } else {
-        // ★ここが修正ポイント: 「移動していなければ」タップ判定を行う
-        if (!isMoving && cell) {
+        if (!isMoving && cell && cell.dataset.type === 'card') {
             cell.classList.remove("pressed");
             const now = Date.now();
-            
-            // ダブルタップ判定
             if (now - lastTapTime < CONFIG.doubleTapDelay) {
-                // 2回目のタップ
                 showDetail(cell);
-                lastTapTime = 0; // リセット
+                lastTapTime = 0;
             } else {
-                // 1回目のタップ
                 lastTapTime = now;
             }
         }
@@ -706,29 +912,17 @@ const app = {
     this.board.addEventListener("pointerup", endInteraction);
     this.board.addEventListener("pointercancel", endInteraction);
     
-    // --- Pinch Zoom ---
+    // Pinch Zoom
     let initialDist = 0;
     let initialZoom = 1.0;
-
     this.viewport.addEventListener("touchstart", (e) => {
       if (e.touches.length >= 2) {
         isMultiTouch = true;
-        if (isDragging) { 
-           isDragging = false;
-           document.body.classList.remove("is-dragging");
-           if(ghostEl) ghostEl.remove();
-           if(dragEl) dragEl.classList.remove("is-placeholder");
-           stopAutoScroll();
-        }
-        clearTimers();
-        
+        if (isDragging) endInteraction(e); // Cancel drag
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         initialDist = Math.hypot(dx, dy);
         initialZoom = state.zoom;
-        
-        // ピンチズームの時はネイティブズームを止める（自前実装のため）
-        // ただし manipulation を使っている場合でも、自前で制御したいなら preventDefault が必要
         e.preventDefault(); 
       }
     }, { passive: false });
@@ -739,7 +933,6 @@ const app = {
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         const dist = Math.hypot(dx, dy);
-        
         if (initialDist > 0) {
            const ratio = dist / initialDist;
            const newZoom = Math.min(Math.max(initialZoom * ratio, CONFIG.minZoom), CONFIG.maxZoom);
@@ -752,7 +945,7 @@ const app = {
     this.viewport.addEventListener("touchend", (e) => {
       if (e.touches.length < 2) {
         isMultiTouch = false;
-        this.save();
+        this.saveUserState();
       }
     });
     
@@ -771,7 +964,7 @@ const app = {
     state.zoom = newZoom;
     this.updateZoomStyle();
     if (this.zoomTimer) clearTimeout(this.zoomTimer);
-    this.zoomTimer = setTimeout(()=> this.save(), 500);
+    this.zoomTimer = setTimeout(()=> this.saveUserState(), 500);
   }
 };
 
