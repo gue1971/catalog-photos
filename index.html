@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (V37: Bug Fix)</title>
+<title>Horse Board (V38: High Attention)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -194,11 +194,36 @@
   .mini-check.checked { background: #666; color: #fff; }
   .mini-check i { pointer-events: none; }
 
-  @keyframes flash {
-    0%, 100% { border-color: #444; box-shadow: none; transform: scale(1.0); z-index: 1; }
-    50% { border-color: #ff0; box-shadow: 0 0 30px #ff0; transform: scale(1.1); z-index: 100; }
+  /* ★ V38: 激しく主張するアニメーション 
+   - 拡大 (Scale 1.15)
+   - 振動 (Translate X)
+   - 強発光 (Box Shadow & Border)
+   - 最前面表示 (Z-Index)
+  */
+  @keyframes super-flash {
+    0%, 100% {
+      transform: scale(1.0) rotate(0deg);
+      border-color: #444;
+      box-shadow: none;
+      z-index: 1;
+    }
+    /* 激しい振動 */
+    10%, 90% { transform: scale(1.15) translate(-2px, 0); }
+    20%, 80% { transform: scale(1.15) translate(2px, 0); }
+    30%, 50%, 70% { transform: scale(1.15) translate(-4px, 0); }
+    40%, 60% { transform: scale(1.15) translate(4px, 0); }
+    
+    /* 強発光 */
+    50% {
+      border-color: #fff;
+      box-shadow: 0 0 50px rgba(255, 255, 0, 0.8), inset 0 0 20px rgba(255, 255, 0, 0.5);
+      z-index: 1000; /* 確実に一番手前に */
+    }
   }
-  .cell.highlight { animation: flash 1s ease-in-out 3; }
+  
+  .cell.highlight {
+    animation: super-flash 0.8s ease-in-out infinite; /* JSで止めるまでループ */
+  }
 
   .cell.spacer {
     background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.1);
@@ -384,9 +409,8 @@
 
 <script>
 /**
- * Horse Board Logic (V37: Bug Fix - Close Modal Refresh)
- * - Fixed: Unchecking in All List not reflecting on board due to missing re-render on modal close.
- * - Added strict string conversion for ID matching to prevent type mismatch bugs.
+ * Horse Board Logic (V38: High Attention Jump)
+ * - Improved highlight animation with shake, zoom, and glow (super-flash).
  */
 
 const CONFIG = {
@@ -551,7 +575,6 @@ const app = {
   
   toggleSelectionOnCard(id, btnEl, e) {
     e.stopPropagation(); 
-    // IDの型不一致を防ぐため文字列表現で比較
     const idx = state.mySelectionIds.findIndex(sid => String(sid) === String(id));
     if (idx >= 0) {
         state.mySelectionIds.splice(idx, 1);
@@ -612,7 +635,6 @@ const app = {
   },
   closeModal(id) {
     document.getElementById(id).classList.remove('open');
-    // ★ここが修正点: モーダルを閉じたときにマイ選抜（ボード）を最新の状態に再描画する
     if (state.viewMode === 'my') {
       this.updateRenderItems();
       this.render();
@@ -841,7 +863,6 @@ const app = {
   },
 
   toggleSelectionAllTab(id) {
-    // ★ここが修正点: 型の不一致を防ぐため、文字列としてインデックスを検索
     const idx = state.mySelectionIds.findIndex(sid => String(sid) === String(id));
     const el = document.getElementById(`chk_all_${id}`);
     
