@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (Grid Map)</title>
+<title>Horse Board (Fix Visibility)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -23,7 +23,7 @@
     overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
-    touch-action: none; /* 全体のスクロールをJSで制御するため */
+    touch-action: none;
   }
 
   .toolbar {
@@ -48,32 +48,21 @@
   .viewport {
     width: 100vw;
     height: calc(100vh - 48px);
-    overflow: auto; /* スクロール許可 */
+    overflow: auto; 
     position: relative;
     -webkit-overflow-scrolling: touch; 
     touch-action: pan-x pan-y pinch-zoom;
   }
 
-  /* ★ グリッドボード (Grid Map)
-     ここが今回の肝。FlexboxをやめてCSS Gridにする。
-     幅を 100% * zoom にすることで、拡大時に折り返さずにはみ出させる。
-  */
+  /* グリッドボード */
   .board {
     display: grid;
-    /* 常に12列。1frは「等分」の意味 */
     grid-template-columns: repeat(12, 1fr);
-    /* 隙間もズームに合わせて広げる */
     gap: calc(var(--gap) * var(--zoom));
-    
-    /* 重要: 幅をズーム倍率で決定する。
-       1.0なら画面幅ぴったり(100%)。
-       2.0なら画面幅の2倍(200%)になり、はみ出した分はスクロールで見る。
-    */
     width: calc(100% * var(--zoom));
-    
     padding: 8px;
     box-sizing: border-box;
-    padding-bottom: 200px; /* 下部の余白 */
+    padding-bottom: 200px;
     transform-origin: 0 0;
   }
 
@@ -83,11 +72,13 @@
     border-radius: calc(2px * var(--zoom));
     overflow: hidden;
     touch-action: pan-x pan-y pinch-zoom;
-    /* アスペクト比や高さをCSS Gridで完全に揃える */
+    /* 高さ自動：中身が増えれば伸びる */
     height: auto;
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
+    /* 背景色を念のためつける */
+    background: var(--bg);
   }
 
   .cell.card {
@@ -102,7 +93,7 @@
     display: block; 
     pointer-events: none;
     aspect-ratio: 4/3; 
-    object-fit: contain; /* 画像の比率を維持 */
+    object-fit: contain;
     background: #000;
   }
   
@@ -118,53 +109,58 @@
   .cell.card .info-area {
     padding: calc(2px * var(--zoom)) calc(3px * var(--zoom));
     background: var(--card-bg);
-    display: block;
-    flex-grow: 1; /* 高さを揃えるために伸ばす */
-    min-height: calc(14px * var(--zoom)); /* 最低限の高さを確保 */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    /* 高さ制限を撤廃し、自然に伸びるようにする */
+    flex-grow: 1; 
+    min-height: auto; 
   }
 
+  /* ★修正: フォントサイズを「小さすぎない」値に調整 
+     calc(9px * zoom) にして、Zoom1.0でも9pxを確保
+  */
   .info-title { 
     font-weight: bold;
-    font-size: calc(7px * var(--zoom)); 
-    margin-bottom: 0;
+    font-size: calc(9px * var(--zoom)); 
+    margin-bottom: calc(1px * var(--zoom)); /* 少し隙間 */
     color: #eee;
-    line-height: 1.1;
+    line-height: 1.2;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .info-sub { 
-    display: none;
-    font-size: calc(6px * var(--zoom));
-    color: #999;
-    line-height: 1.1;
+    display: block !important; /* 強制表示 */
+    font-size: calc(8px * var(--zoom)); /* 8px確保 */
+    color: #aaa; /* 少し明るく */
+    line-height: 1.2;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    margin-top: 0;
   }
 
-  .board.view-detail .cell.card .info-sub { display: block; }
-
-  /* スペーサー（カードと全く同じサイズ・構造にする） */
+  /* スペーサー */
   .cell.spacer {
     background: rgba(255,255,255,0.03);
     border: 1px dashed rgba(255,255,255,0.1);
   }
   
-  /* スペーサーにも透明な比率維持ブロックを入れて高さを強制一致させる */
   .cell.spacer::before {
     content: "";
     display: block;
     width: 100%;
     aspect-ratio: 4/3;
   }
-  /* 情報エリア分の高さも確保 */
+  /* スペーサーの下部もカードと高さを合わせるためのダミー */
   .cell.spacer::after {
     content: "";
     display: block;
     flex-grow: 1;
-    min-height: calc(14px * var(--zoom));
+    /* 文字2行分+パディングのおおよその高さを確保 */
+    min-height: calc(22px * var(--zoom)); 
     border-top: 1px solid rgba(255,255,255,0.05);
   }
 
@@ -183,19 +179,19 @@
   /* ゴースト */
   .ghost {
     position: fixed; z-index: 9999;
-    width: 120px; /* 固定サイズか、計算するか */
+    width: 120px;
     border-radius: 6px; overflow: hidden;
     box-shadow: 0 20px 50px rgba(0,0,0,0.8);
     pointer-events: none;
     background: var(--card-bg);
     border: 1px solid #aaa;
     opacity: 0.95;
-    /* ゴーストは少し大きく表示 */
     transform: translate(-50%, -110%) scale(1.1); 
   }
   .ghost img { width: 100%; aspect-ratio: 4/3; display: block; }
   .ghost .info-area { padding: 4px; background: #222; display: block; }
   .ghost .info-title { font-size: 12px; font-weight: bold; color: #fff; }
+  .ghost .info-sub { font-size: 10px; color: #aaa; display: block; }
 
   body.is-dragging { cursor: grabbing; }
   #fileInput { display: none; }
@@ -225,17 +221,15 @@
 
 <script>
 /**
- * Horse Board Logic (v15: Grid Map & Single List)
- * - CSS Gridによる完全なグリッドレイアウト
- * - 拡大時に折り返さず、Mapのように広がる仕様
- * - 常に総数が12の倍数になるようスペーサーを自動管理
+ * Horse Board Logic (v17: Visibility Fix)
+ * - CSS Font Size & Height Constraints relaxed.
+ * - Ensure "Sire" is always visible.
  */
 
 const CONFIG = {
-  columnCount: 12, // 固定
+  columnCount: 12, 
   minZoom: 1.0,
-  maxZoom: 5.0, // 詳細に見るために少し上限アップ
-  detailThreshold: 1.5,
+  maxZoom: 5.0,
   
   longPressDelay: 250, 
   doubleTapDelay: 300,
@@ -246,7 +240,6 @@ const CONFIG = {
   storageKey: "horse_board_v15_grid" 
 };
 
-// 状態管理：2次元配列をやめて1次元配列(items)にする
 const state = {
   items: [], 
   zoom: 1.0,
@@ -269,7 +262,6 @@ const app = {
        this.syncMasterData(hasLocalData);
     }
     
-    // 初期化時にも必ず12の倍数にする
     this.ensureGridCompleteness();
 
     this.render();
@@ -290,20 +282,17 @@ const app = {
     if (raw) {
       try {
         const saved = JSON.parse(raw);
-        // 旧データ(columns配列)からの移行処理
         if (saved.columns && Array.isArray(saved.columns)) {
-          state.items = saved.columns.flat(); // 2次元を1次元に平坦化
+          state.items = saved.columns.flat(); 
           loaded = true;
         } else if (saved.items && Array.isArray(saved.items)) {
           state.items = saved.items;
           loaded = true;
         }
-        
         state.zoom = Math.max(saved.zoom || 1.0, CONFIG.minZoom);
       } catch(e) { console.error(e); }
     }
     
-    // データがない場合、とりあえず1行分(12個)のスペーサーを作る
     if (!loaded || state.items.length === 0) {
       state.items = Array.from({length: CONFIG.columnCount}, () => ({
         uKey: generateUniqueKey(), type: "spacer"
@@ -312,7 +301,6 @@ const app = {
     return loaded;
   },
 
-  // 常にアイテム総数を12の倍数にする
   ensureGridCompleteness() {
     const remainder = state.items.length % CONFIG.columnCount;
     if (remainder !== 0) {
@@ -337,14 +325,9 @@ const app = {
     });
 
     if (newItems.length > 0) {
-      // 既存リストの先頭に追加するか、末尾に追加するか
-      // ユーザーの要望「最下部に追加」に合わせて末尾に追加し、その後整える
       if (!hasLocalData) {
-        // 初回は既存スペーサーを消して置き換え
         state.items = newItems;
       } else {
-        // 既にデータがある場合は、既存データの「最後の有効なカード」の後ろに追加したいが
-        // 単純に末尾(push)で良い。スペーサー埋めは ensureGridCompleteness でやる
         state.items.push(...newItems);
       }
       this.ensureGridCompleteness();
@@ -368,7 +351,6 @@ const app = {
   getNetkeibaUrl(id) { return `https://db.netkeiba.com/horse/${id}`; },
 
   save() {
-    // 保存時はスペーサーも含めて保存する（盤面の形状を維持するため）
     const dataToSave = {
       items: state.items.map(item => {
         const { isNew, ...rest } = item; 
@@ -380,10 +362,7 @@ const app = {
   },
 
   render() {
-    // 差分更新ではなく全描画（シンプルさを優先）
     this.board.innerHTML = "";
-    
-    // Gridアイテムを生成
     state.items.forEach((item, index) => {
       const cell = this.createCell(item, index);
       this.board.appendChild(cell);
@@ -395,19 +374,22 @@ const app = {
     el.className = `cell ${item.type}`;
     if (item.isNew) el.classList.add("new-entry");
 
-    // 1次元配列のインデックスを持たせる
     el.dataset.index = index;
     el.dataset.uKey = item.uKey;
     el.dataset.type = item.type;
 
     if (item.type === "card") {
       const imgPath = this.getImagePath(item.id);
+      
+      // sire が無い場合の安全策も追加
+      const sireName = item.sire || "不明";
+
       el.innerHTML = `
         <img src="${imgPath}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
         <div class="placeholder-icon" style="display:none"><i class="fa-solid fa-horse-head"></i></div>
         <div class="info-area">
           <div class="info-title">${item.name}</div>
-          <div class="info-sub">父: ${item.sire}</div>
+          <div class="info-sub">父: ${sireName}</div>
         </div>
       `;
       el.dataset.horseId = item.id;
@@ -416,39 +398,26 @@ const app = {
   },
 
   updateZoomStyle() {
-    // CSS変数 --zoom を更新。
-    // .board の width: calc(100% * var(--zoom)) により、
-    // 親(viewport)に対して拡大し、親からはみ出る＝スクロール可能になる
     document.documentElement.style.setProperty('--zoom', state.zoom);
     this.zoomVal.textContent = Math.round(state.zoom * 100) + "%";
-    
-    if (state.zoom > CONFIG.detailThreshold) {
-      this.board.classList.add("view-detail");
-    } else {
-      this.board.classList.remove("view-detail");
-    }
   },
 
-  // 行（12個のスペーサー）を追加
   addRow() {
     for(let i=0; i<CONFIG.columnCount; i++){
       state.items.push({ uKey: generateUniqueKey(), type: "spacer" });
     }
     this.render();
     this.save();
-    // 最下部へスクロール
     setTimeout(() => {
         this.viewport.scrollTop = this.viewport.scrollHeight;
     }, 50);
   },
   
-  // ダミーカード追加
   addDummyCard() {
     if (state.masterData.length === 0) return;
     const randomData = state.masterData[Math.floor(Math.random()*state.masterData.length)];
     const newItem = this.buildCardData(randomData);
     
-    // 末尾に追加して、整合性を取る
     state.items.push(newItem);
     this.ensureGridCompleteness();
     
@@ -491,7 +460,6 @@ const app = {
           this.save();
           alert("インポート完了");
         } else if (json.columns) {
-            // 旧形式も受け入れる
             state.items = json.columns.flat();
             this.ensureGridCompleteness();
             this.render();
@@ -504,9 +472,6 @@ const app = {
     input.value = "";
   },
 
-  // ------------------------------------------------
-  // Events
-  // ------------------------------------------------
   attachEvents() {
     let pointerId = null;
     let startX=0, startY=0;
@@ -518,11 +483,10 @@ const app = {
     
     let dragEl = null;     
     let ghostEl = null;    
-    let currentIndex = -1; // 1次元インデックス
+    let currentIndex = -1;
 
     let autoScrollRafId = null;
 
-    // --- PC Zoom ---
     window.addEventListener("keydown", (e) => {
       if (e.target.tagName === 'INPUT') return;
       if (e.key === "+" || e.key === "=") { this.applyZoom(0.1); e.preventDefault(); }
@@ -542,7 +506,6 @@ const app = {
       if (horseId) window.open(this.getNetkeibaUrl(horseId), '_blank'); 
     };
 
-    // --- Auto Scroll ---
     const stopAutoScroll = () => {
       if (autoScrollRafId) { cancelAnimationFrame(autoScrollRafId); autoScrollRafId = null; }
     };
@@ -571,7 +534,6 @@ const app = {
       }
     };
 
-    // --- Drag Start ---
     const startDrag = (el, x, y) => {
       if (isMultiTouch) return;
 
@@ -579,7 +541,6 @@ const app = {
       document.body.classList.add("is-dragging");
       
       dragEl = el;
-      // Set Capture (PC/Touch)
       if (pointerId && dragEl.setPointerCapture) {
         try { dragEl.setPointerCapture(pointerId); } catch(e){}
       }
@@ -587,12 +548,10 @@ const app = {
       dragEl.classList.add("is-placeholder");
       currentIndex = Number(dragEl.dataset.index);
       
-      // ゴースト作成
       ghostEl = el.cloneNode(true);
       ghostEl.className = "ghost";
       ghostEl.classList.remove("is-placeholder", "pressed");
       
-      // ゴーストのサイズを計算して合わせる (Gridなのでセル幅を取得)
       const rect = el.getBoundingClientRect();
       ghostEl.style.width = rect.width + "px";
       ghostEl.style.height = rect.height + "px";
@@ -610,7 +569,6 @@ const app = {
       }
     };
 
-    // --- Pointer Events ---
     this.board.addEventListener("pointerdown", (e) => {
       if (e.button !== 0) return;
       if (isMultiTouch) return;
@@ -649,175 +607,4 @@ const app = {
       }
 
       const dx = Math.abs(e.clientX - startX);
-      const dy = Math.abs(e.clientY - startY);
-      if (dx > 8 || dy > 8) { 
-        clearTimers();
-        const cell = e.target.closest(".cell");
-        if (cell) cell.classList.remove("pressed");
-      }
-    });
-
-    // iPad Scroll Block
-    this.viewport.addEventListener("touchmove", (e) => {
-      if (isDragging) e.preventDefault();
-    }, { passive: false });
-
-    // --- Swap Logic (1D Array) ---
-    const handleSwapLogic = (x, y) => {
-      // ゴーストを一時的に消して下の要素を取得
-      if (ghostEl) ghostEl.style.display = 'none';
-      let target = document.elementFromPoint(x, y);
-      if (ghostEl) ghostEl.style.display = 'block'; // Gridなのでdisplay:flex/block関係ないがblockで戻す
-
-      if (!target) return;
-      const targetCell = target.closest('.cell');
-      
-      if (targetCell && targetCell !== dragEl && this.board.contains(targetCell)) {
-        
-        const targetIndex = Number(targetCell.dataset.index);
-        
-        // データ入れ替え (Swap)
-        const temp = state.items[currentIndex];
-        state.items[currentIndex] = state.items[targetIndex];
-        state.items[targetIndex] = temp;
-
-        // DOM入れ替え
-        // Gridの順序はDOMの順序に依存する
-        const parent = this.board;
-        const items = Array.from(parent.children);
-        
-        // DOM再構築は重いので、insertBeforeで移動させる
-        // targetがcurrentより後ろにあるか前にあるかで挙動が変わるが
-        // 単純に「targetの場所にcurrentを持っていく、currentの場所にtargetを持っていく」
-        
-        // 今回はシンプルにデータ配列に合わせて再描画（数が多いと重いが100件程度なら一瞬）
-        // または、要素のdataset.indexを書き換えて中身(HTML)を入れ替える
-        
-        // ★ 軽量化のため中身交換アプローチを採用
-        const dragHtml = dragEl.innerHTML;
-        const dragClass = dragEl.className;
-        const dragId = dragEl.dataset.horseId;
-        const dragKey = dragEl.dataset.uKey;
-        const dragType = dragEl.dataset.type;
-        
-        dragEl.innerHTML = targetCell.innerHTML;
-        dragEl.className = targetCell.className;
-        dragEl.dataset.horseId = targetCell.dataset.horseId || "";
-        dragEl.dataset.uKey = targetCell.dataset.uKey;
-        dragEl.dataset.type = targetCell.dataset.type;
-        // targetCellはdrag中状態にする
-        dragEl.classList.remove("is-placeholder"); 
-
-        targetCell.innerHTML = dragHtml;
-        targetCell.className = dragClass;
-        targetCell.dataset.horseId = dragId || "";
-        targetCell.dataset.uKey = dragKey;
-        targetCell.dataset.type = dragType;
-        targetCell.classList.add("is-placeholder");
-
-        // 参照を更新
-        dragEl = targetCell;
-        currentIndex = targetIndex;
-        
-        if(pointerId) { try{ dragEl.setPointerCapture(pointerId); }catch(e){} }
-      }
-    };
-
-    const endInteraction = (e) => {
-      if (pointerId && e.pointerId !== pointerId) return;
-      
-      clearTimers();
-      stopAutoScroll();
-
-      const cell = e.target.closest(".cell");
-      if (cell) cell.classList.remove("pressed");
-      
-      if (isDragging) {
-        isDragging = false;
-        document.body.classList.remove("is-dragging");
-        
-        if (ghostEl) ghostEl.remove();
-        if (dragEl) {
-          dragEl.classList.remove("is-placeholder");
-          if (dragEl.releasePointerCapture && pointerId) {
-             try { dragEl.releasePointerCapture(pointerId); } catch(e){}
-          }
-        }
-        this.save();
-      }
-      pointerId = null;
-    };
-
-    this.board.addEventListener("pointerup", endInteraction);
-    this.board.addEventListener("pointercancel", endInteraction);
-    
-    // --- Touch (Pinch Zoom) ---
-    let initialDist = 0;
-    let initialZoom = 1.0;
-
-    this.viewport.addEventListener("touchstart", (e) => {
-      if (e.touches.length >= 2) {
-        isMultiTouch = true;
-        if (isDragging) {
-           isDragging = false;
-           document.body.classList.remove("is-dragging");
-           if(ghostEl) ghostEl.remove();
-           if(dragEl) dragEl.classList.remove("is-placeholder");
-           stopAutoScroll();
-        }
-        clearTimers();
-        
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        initialDist = Math.hypot(dx, dy);
-        initialZoom = state.zoom;
-        e.preventDefault(); 
-      }
-    }, { passive: false });
-
-    this.viewport.addEventListener("touchmove", (e) => {
-      if (isMultiTouch && e.touches.length >= 2) {
-        e.preventDefault();
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        const dist = Math.hypot(dx, dy);
-        
-        if (initialDist > 0) {
-           const ratio = dist / initialDist;
-           const newZoom = Math.min(Math.max(initialZoom * ratio, CONFIG.minZoom), CONFIG.maxZoom);
-           state.zoom = newZoom;
-           this.updateZoomStyle();
-        }
-      }
-    }, { passive: false });
-
-    this.viewport.addEventListener("touchend", (e) => {
-      if (e.touches.length < 2) {
-        isMultiTouch = false;
-        this.save();
-      }
-    });
-    
-    this.viewport.addEventListener("wheel", (e) => {
-      if (e.ctrlKey) {
-        e.preventDefault();
-        const delta = e.deltaY * -0.01;
-        this.applyZoom(delta);
-      }
-    }, { passive: false });
-  },
-
-  applyZoom(delta) {
-    let newZoom = state.zoom + delta;
-    newZoom = Math.min(Math.max(newZoom, CONFIG.minZoom), CONFIG.maxZoom);
-    state.zoom = newZoom;
-    this.updateZoomStyle();
-    if (this.zoomTimer) clearTimeout(this.zoomTimer);
-    this.zoomTimer = setTimeout(()=> this.save(), 500);
-  }
-};
-
-app.init();
-</script>
-</body>
-</html>
+      const dy = Math
