@@ -3,14 +3,13 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (Fix Visibility)</title>
+<title>Horse Board (Safe Fix)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
     --bg: #222;
     --card-bg: #111;
     --text-color: #eee;
-    --accent: #0078ff;
     --zoom: 1.0;
     --gap: 2px;
   }
@@ -26,6 +25,7 @@
     touch-action: none;
   }
 
+  /* ツールバー */
   .toolbar {
     position: fixed; bottom: 0; left: 0; right: 0;
     height: 48px;
@@ -66,27 +66,27 @@
     transform-origin: 0 0;
   }
 
-  /* セル */
+  /* セル共通 */
   .cell {
     position: relative;
     border-radius: calc(2px * var(--zoom));
     overflow: hidden;
     touch-action: pan-x pan-y pinch-zoom;
-    /* 高さ自動：中身が増えれば伸びる */
-    height: auto;
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    /* 背景色を念のためつける */
-    background: var(--bg);
+    /* 背景色がないと透明になって黒背景と同化するので指定 */
+    background: #333; 
   }
 
+  /* カード */
   .cell.card {
     background: var(--card-bg);
     box-shadow: 0 2px 4px rgba(0,0,0,0.5);
     border: 1px solid #444;
   }
   
+  /* 画像 */
   .cell.card img {
     width: 100%; 
     height: auto;
@@ -97,6 +97,7 @@
     background: #000;
   }
   
+  /* 画像なしアイコン */
   .cell.card .placeholder-icon {
     width: 100%; 
     aspect-ratio: 4/3;
@@ -106,24 +107,25 @@
     font-size: calc(24px * var(--zoom));
   }
 
+  /* 情報エリア（ここを安全に修正） */
   .cell.card .info-area {
     padding: calc(2px * var(--zoom)) calc(3px * var(--zoom));
     background: var(--card-bg);
     display: flex;
     flex-direction: column;
     justify-content: center;
-    /* 高さ制限を撤廃し、自然に伸びるようにする */
-    flex-grow: 1; 
-    min-height: auto; 
+    /* 自動(auto)はやめて、計算で最低高さを確保する */
+    /* 馬名(9px) + 父名(8px) + 余白(数px) = 約22px */
+    flex-grow: 1;
+    min-height: calc(24px * var(--zoom));
   }
 
-  /* ★修正: フォントサイズを「小さすぎない」値に調整 
-     calc(9px * zoom) にして、Zoom1.0でも9pxを確保
-  */
+  /* 馬名 */
   .info-title { 
     font-weight: bold;
+    /* ズームしても最低9px相当を確保する計算 */
     font-size: calc(9px * var(--zoom)); 
-    margin-bottom: calc(1px * var(--zoom)); /* 少し隙間 */
+    margin-bottom: 2px; /* calcを使わず固定値で安全に */
     color: #eee;
     line-height: 1.2;
     white-space: nowrap;
@@ -131,49 +133,36 @@
     text-overflow: ellipsis;
   }
 
+  /* 父名：常時表示 */
   .info-sub { 
-    display: block !important; /* 強制表示 */
-    font-size: calc(8px * var(--zoom)); /* 8px確保 */
-    color: #aaa; /* 少し明るく */
+    display: block !important;
+    font-size: calc(8px * var(--zoom));
+    color: #aaa;
     line-height: 1.2;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-top: 0;
   }
 
-  /* スペーサー */
+  /* スペーサー（カードと同じ高さを確保するためのダミー要素） */
   .cell.spacer {
     background: rgba(255,255,255,0.03);
     border: 1px dashed rgba(255,255,255,0.1);
   }
-  
   .cell.spacer::before {
-    content: "";
-    display: block;
-    width: 100%;
-    aspect-ratio: 4/3;
+    content: ""; display: block; width: 100%; aspect-ratio: 4/3;
   }
-  /* スペーサーの下部もカードと高さを合わせるためのダミー */
   .cell.spacer::after {
-    content: "";
-    display: block;
-    flex-grow: 1;
-    /* 文字2行分+パディングのおおよその高さを確保 */
-    min-height: calc(22px * var(--zoom)); 
+    content: ""; display: block; flex-grow: 1;
+    min-height: calc(24px * var(--zoom)); /* カードと合わせる */
     border-top: 1px solid rgba(255,255,255,0.05);
   }
 
   .cell.is-placeholder {
-    opacity: 0.15;
-    border: 1px dashed #666;
-    filter: grayscale(100%);
+    opacity: 0.15; border: 1px dashed #666; filter: grayscale(100%);
   }
-  
   .cell.pressed {
-    transform: scale(0.95);
-    transition: transform 0.1s;
-    filter: brightness(1.2);
+    transform: scale(0.95); transition: transform 0.1s; filter: brightness(1.2);
   }
 
   /* ゴースト */
@@ -220,23 +209,23 @@
 <input type="file" id="fileInput" accept=".json" onchange="app.importData(this)">
 
 <script>
+window.onerror = function(msg, url, line) {
+  alert("エラーが発生しました:\n" + msg + "\n行: " + line);
+};
+</script>
+
+<script>
 /**
- * Horse Board Logic (v17: Visibility Fix)
- * - CSS Font Size & Height Constraints relaxed.
- * - Ensure "Sire" is always visible.
+ * Horse Board Logic (v18: Safe Grid & Visibility)
+ * - Restored safe rendering logic to prevent black screen.
+ * - Always shows Sire name (Info-Sub).
+ * - Fixed height calculations.
  */
 
 const CONFIG = {
   columnCount: 12, 
   minZoom: 1.0,
   maxZoom: 5.0,
-  
-  longPressDelay: 250, 
-  doubleTapDelay: 300,
-  
-  autoScrollZone: 60,
-  autoScrollSpeed: 15,
-  
   storageKey: "horse_board_v15_grid" 
 };
 
@@ -251,22 +240,26 @@ function generateUniqueKey() { return `obj_${Date.now()}_${state.nextId++}`; }
 
 const app = {
   async init() {
-    this.board = document.getElementById("board");
-    this.viewport = document.getElementById("viewport");
-    this.zoomVal = document.getElementById("zoomVal");
-    
-    await this.loadMasterData();
-    const hasLocalData = this.loadBoardState();
+    try {
+      this.board = document.getElementById("board");
+      this.viewport = document.getElementById("viewport");
+      this.zoomVal = document.getElementById("zoomVal");
+      
+      await this.loadMasterData();
+      const hasLocalData = this.loadBoardState();
 
-    if (state.masterData.length > 0) {
-       this.syncMasterData(hasLocalData);
+      if (state.masterData.length > 0) {
+         this.syncMasterData(hasLocalData);
+      }
+      
+      this.ensureGridCompleteness();
+
+      this.render();
+      this.updateZoomStyle();
+      this.attachEvents();
+    } catch(e) {
+      alert("初期化エラー: " + e);
     }
-    
-    this.ensureGridCompleteness();
-
-    this.render();
-    this.updateZoomStyle();
-    this.attachEvents();
   },
 
   async loadMasterData() {
@@ -363,10 +356,12 @@ const app = {
 
   render() {
     this.board.innerHTML = "";
+    const fragment = document.createDocumentFragment();
     state.items.forEach((item, index) => {
       const cell = this.createCell(item, index);
-      this.board.appendChild(cell);
+      fragment.appendChild(cell);
     });
+    this.board.appendChild(fragment);
   },
 
   createCell(item, index) {
@@ -380,8 +375,6 @@ const app = {
 
     if (item.type === "card") {
       const imgPath = this.getImagePath(item.id);
-      
-      // sire が無い場合の安全策も追加
       const sireName = item.sire || "不明";
 
       el.innerHTML = `
@@ -398,6 +391,7 @@ const app = {
   },
 
   updateZoomStyle() {
+    if (!state.zoom || isNaN(state.zoom)) state.zoom = 1.0;
     document.documentElement.style.setProperty('--zoom', state.zoom);
     this.zoomVal.textContent = Math.round(state.zoom * 100) + "%";
   },
@@ -466,7 +460,7 @@ const app = {
             this.save();
             alert("インポート完了（旧形式を変換）");
         }
-      } catch(err) { alert("エラー"); }
+      } catch(err) { alert("エラー: " + err); }
     };
     reader.readAsText(file);
     input.value = "";
@@ -607,4 +601,155 @@ const app = {
       }
 
       const dx = Math.abs(e.clientX - startX);
-      const dy = Math
+      const dy = Math.abs(e.clientY - startY);
+      if (dx > 8 || dy > 8) { 
+        clearTimers();
+        const cell = e.target.closest(".cell");
+        if (cell) cell.classList.remove("pressed");
+      }
+    });
+
+    this.viewport.addEventListener("touchmove", (e) => {
+      if (isDragging) e.preventDefault();
+    }, { passive: false });
+
+    const handleSwapLogic = (x, y) => {
+      if (ghostEl) ghostEl.style.display = 'none';
+      let target = document.elementFromPoint(x, y);
+      if (ghostEl) ghostEl.style.display = 'block';
+
+      if (!target) return;
+      const targetCell = target.closest('.cell');
+      
+      if (targetCell && targetCell !== dragEl && this.board.contains(targetCell)) {
+        
+        const targetIndex = Number(targetCell.dataset.index);
+        
+        const temp = state.items[currentIndex];
+        state.items[currentIndex] = state.items[targetIndex];
+        state.items[targetIndex] = temp;
+
+        const dragHtml = dragEl.innerHTML;
+        const dragClass = dragEl.className;
+        const dragId = dragEl.dataset.horseId;
+        const dragKey = dragEl.dataset.uKey;
+        const dragType = dragEl.dataset.type;
+        
+        dragEl.innerHTML = targetCell.innerHTML;
+        dragEl.className = targetCell.className;
+        dragEl.dataset.horseId = targetCell.dataset.horseId || "";
+        dragEl.dataset.uKey = targetCell.dataset.uKey;
+        dragEl.dataset.type = targetCell.dataset.type;
+        dragEl.classList.remove("is-placeholder"); 
+
+        targetCell.innerHTML = dragHtml;
+        targetCell.className = dragClass;
+        targetCell.dataset.horseId = dragId || "";
+        targetCell.dataset.uKey = dragKey;
+        targetCell.dataset.type = dragType;
+        targetCell.classList.add("is-placeholder");
+
+        dragEl = targetCell;
+        currentIndex = targetIndex;
+        
+        if(pointerId) { try{ dragEl.setPointerCapture(pointerId); }catch(e){} }
+      }
+    };
+
+    const endInteraction = (e) => {
+      if (pointerId && e.pointerId !== pointerId) return;
+      
+      clearTimers();
+      stopAutoScroll();
+
+      const cell = e.target.closest(".cell");
+      if (cell) cell.classList.remove("pressed");
+      
+      if (isDragging) {
+        isDragging = false;
+        document.body.classList.remove("is-dragging");
+        
+        if (ghostEl) ghostEl.remove();
+        if (dragEl) {
+          dragEl.classList.remove("is-placeholder");
+          if (dragEl.releasePointerCapture && pointerId) {
+             try { dragEl.releasePointerCapture(pointerId); } catch(e){}
+          }
+        }
+        this.save();
+      }
+      pointerId = null;
+    };
+
+    this.board.addEventListener("pointerup", endInteraction);
+    this.board.addEventListener("pointercancel", endInteraction);
+    
+    let initialDist = 0;
+    let initialZoom = 1.0;
+
+    this.viewport.addEventListener("touchstart", (e) => {
+      if (e.touches.length >= 2) {
+        isMultiTouch = true;
+        if (isDragging) {
+           isDragging = false;
+           document.body.classList.remove("is-dragging");
+           if(ghostEl) ghostEl.remove();
+           if(dragEl) dragEl.classList.remove("is-placeholder");
+           stopAutoScroll();
+        }
+        clearTimers();
+        
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        initialDist = Math.hypot(dx, dy);
+        initialZoom = state.zoom;
+        e.preventDefault(); 
+      }
+    }, { passive: false });
+
+    this.viewport.addEventListener("touchmove", (e) => {
+      if (isMultiTouch && e.touches.length >= 2) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        
+        if (initialDist > 0) {
+           const ratio = dist / initialDist;
+           const newZoom = Math.min(Math.max(initialZoom * ratio, CONFIG.minZoom), CONFIG.maxZoom);
+           state.zoom = newZoom;
+           this.updateZoomStyle();
+        }
+      }
+    }, { passive: false });
+
+    this.viewport.addEventListener("touchend", (e) => {
+      if (e.touches.length < 2) {
+        isMultiTouch = false;
+        this.save();
+      }
+    });
+    
+    this.viewport.addEventListener("wheel", (e) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        const delta = e.deltaY * -0.01;
+        this.applyZoom(delta);
+      }
+    }, { passive: false });
+  },
+
+  applyZoom(delta) {
+    let newZoom = state.zoom + delta;
+    newZoom = Math.min(Math.max(newZoom, CONFIG.minZoom), CONFIG.maxZoom);
+    state.zoom = newZoom;
+    this.updateZoomStyle();
+    if (this.zoomTimer) clearTimeout(this.zoomTimer);
+    this.zoomTimer = setTimeout(()=> this.save(), 500);
+  }
+};
+
+app.init();
+</script>
+</body>
+</html>
