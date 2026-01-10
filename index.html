@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (V24: Search & Flash Fix)</title>
+<title>Horse Board (V25: Sire Search Fix & Max Zoom)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -93,13 +93,11 @@
     border: 1px solid #444;
   }
   
-  /* ★修正: 点滅アニメーション（3回点滅して気づかせる） */
   @keyframes flash {
     0%, 100% { border-color: #444; box-shadow: none; transform: scale(1.0); z-index: 1; }
     50% { border-color: #ff0; box-shadow: 0 0 30px #ff0; transform: scale(1.1); z-index: 100; }
   }
   .cell.highlight {
-    /* 1秒間隔で3回繰り返す */
     animation: flash 1s ease-in-out 3;
   }
 
@@ -306,15 +304,15 @@
 
 <script>
 /**
- * Horse Board Logic (v24: Kana Search & Flash Fix)
- * - Flash animation: 3 times, longer duration, delayed start.
- * - Kana Search: Implemented using name first character detection.
+ * Horse Board Logic (v25: Sire Search Trim Fix & Max Zoom)
+ * - Fixed: Sire search ignoring results due to invisible whitespace.
+ * - Update: Max Zoom increased to 12.0 (1200%).
  */
 
 const CONFIG = {
   columnCount: 12, 
   minZoom: 1.0,
-  maxZoom: 5.0,
+  maxZoom: 12.0, // ★上限を1200%へ
   detailThreshold: 2.0, 
   storageKey: "horse_board_v23_db",
   
@@ -406,11 +404,12 @@ const app = {
       });
     } else if (state.viewMode === 'filter') {
       if (state.filterType === 'sire') {
+        // ★修正: 比較時に両方ともtrim()して余計な空白を無視する
+        const targetSire = state.filterValue; 
         items = state.masterData
-          .filter(h => h.sire === state.filterValue)
+          .filter(h => h.sire && h.sire.trim() === targetSire)
           .map(h => ({ ...h, type: 'card' }));
       } else if (state.filterType === 'kana') {
-        // カナフィルタ処理
         const chars = KANA_MAP[state.filterValue] || [];
         items = state.masterData
           .filter(h => {
@@ -516,7 +515,13 @@ const app = {
     if (tab === 'all') {
       this.renderSearchList(container, state.masterData);
     } else if (tab === 'sire') {
-      const sires = [...new Set(state.masterData.map(h => h.sire).filter(s=>s))].sort();
+      // ★修正: リスト作成時もtrim()して重複を排除する
+      const sireSet = new Set();
+      state.masterData.forEach(h => {
+          if (h.sire) sireSet.add(h.sire.trim());
+      });
+      const sires = [...sireSet].sort();
+
       const grid = document.createElement('div');
       grid.className = 'cat-grid';
       sires.forEach(sire => {
@@ -531,7 +536,6 @@ const app = {
       });
       container.appendChild(grid);
     } else if (tab === 'kana') {
-      // 50音リスト実装
       const grid = document.createElement('div');
       grid.className = 'cat-grid';
       Object.keys(KANA_MAP).forEach(row => {
@@ -606,14 +610,12 @@ const app = {
       this.render();
     }
     
-    // ★修正: スクロール待ち時間を増やし、アニメーションを確実に
     setTimeout(() => {
       const target = document.querySelector(`.cell[data-horse-id="${id}"]`);
       if (target) {
-        // scrollIntoViewは時間がかかるので、時間を稼ぐ
         target.scrollIntoView({ behavior: 'smooth', block: 'center' });
         
-        // ★修正: 0.8秒待ってから点滅開始（スクロール完了を待つ）
+        // 0.8秒待ってから点滅開始
         setTimeout(() => {
              target.classList.add('highlight');
              // 3回点滅(約3秒)後にクラスを外す
