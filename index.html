@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (V26: Kana Drill-down)</title>
+<title>Horse Board (V27: Filter UX & Layout)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -36,8 +36,10 @@
     gap: 32px;
     padding: 0 16px; z-index: 10000;
     border-top: 1px solid rgba(255,255,255,0.15);
+    transition: background 0.3s;
   }
   
+  /* 通常モードのボタン */
   .tool-btn {
     background: none; border: none;
     color: #888; display: flex; flex-direction: column; align-items: center;
@@ -45,10 +47,30 @@
     width: 60px;
   }
   .tool-btn i { font-size: 20px; margin-bottom: 2px; }
-  .tool-btn.active { color: var(--accent); }
   .tool-btn:active { transform: scale(0.95); }
 
-  /* メイン画面 */
+  /* ★フィルターモード用スタイル */
+  .toolbar.mode-filter {
+    background: #004080; /* 青っぽくしてモード違いを強調 */
+    justify-content: space-between; /* 両端揃え */
+    gap: 0;
+  }
+  .filter-status {
+    color: #fff; font-size: 14px; font-weight: bold;
+    display: flex; flex-direction: column; line-height: 1.2;
+  }
+  .filter-status span { font-size: 10px; opacity: 0.8; font-weight: normal; }
+  
+  .back-btn-large {
+    background: #fff; color: #004080;
+    border: none; border-radius: 20px;
+    padding: 8px 20px; font-size: 14px; font-weight: bold;
+    cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .back-btn-large:active { transform: scale(0.95); background: #eee; }
+
+
   .viewport {
     width: 100vw;
     height: calc(100vh - 54px);
@@ -58,17 +80,7 @@
     touch-action: manipulation;
   }
 
-  .mode-indicator {
-    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
-    background: rgba(0, 120, 255, 0.9); color: #fff;
-    padding: 6px 16px; border-radius: 20px;
-    font-size: 12px; font-weight: bold;
-    z-index: 5000; pointer-events: none;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-    display: none; 
-  }
-
-  /* ボード & カード */
+  /* ボード (通常グリッド) */
   .board {
     display: grid;
     grid-template-columns: repeat(12, 1fr);
@@ -78,6 +90,17 @@
     box-sizing: border-box;
     padding-bottom: 300px; 
     transform-origin: 0 0;
+  }
+
+  /* ★ボード (フィルターモード: フレキシブル) */
+  .board.mode-filter {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    width: 100%; /* ズーム依存を解除してリフローさせる */
+    transform: none; /* ズーム解除 */
+    padding-bottom: 100px;
   }
 
   .cell {
@@ -90,12 +113,51 @@
     background: #333; height: auto; 
   }
 
+  /* ★フィルター時のセルスタイル上書き */
+  .board.mode-filter .cell {
+    border-radius: 4px;
+    /* 画面幅に合わせて伸縮する */
+    width: 140px; 
+    flex-grow: 1; 
+    max-width: 240px; /* 大きくなりすぎ防止 */
+  }
+
   .cell.card {
     background: var(--card-bg);
     box-shadow: 0 2px 4px rgba(0,0,0,0.5);
     border: 1px solid #444;
   }
   
+  /* ★選択状態トグルボタン (カード右上) */
+  .selection-toggle {
+    position: absolute; top: 0; right: 0;
+    width: 36px; height: 36px;
+    z-index: 10; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .toggle-icon {
+    width: 20px; height: 20px;
+    background: rgba(0,0,0,0.5);
+    border: 2px solid #888; border-radius: 50%;
+    color: transparent; display: flex; align-items: center; justify-content: center;
+    font-size: 12px; transition: all 0.2s;
+  }
+  /* 選択されている時 */
+  .selection-toggle.active .toggle-icon {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+    box-shadow: 0 0 8px var(--accent);
+  }
+  .selection-toggle.active .toggle-icon::after { content: "✔"; }
+
+  /* フィルターモード時はボタンを押しやすく少し大きく */
+  .board.mode-filter .selection-toggle {
+    width: 44px; height: 44px;
+  }
+  .board.mode-filter .toggle-icon {
+    width: 24px; height: 24px;
+  }
+
+
   @keyframes flash {
     0%, 100% { border-color: #444; box-shadow: none; transform: scale(1.0); z-index: 1; }
     50% { border-color: #ff0; box-shadow: 0 0 30px #ff0; transform: scale(1.1); z-index: 100; }
@@ -115,6 +177,7 @@
     color: #555; font-size: calc(24px * var(--zoom));
   }
 
+  /* 情報エリア */
   .cell.card .info-area {
     padding: 2px 2px;
     background: var(--card-bg);
@@ -122,21 +185,35 @@
     justify-content: center; align-items: center;     
     flex-grow: 0; min-height: 20px; transition: min-height 0.2s;
   }
+  /* フィルターモード時は情報エリアも少し大きく */
+  .board.mode-filter .cell.card .info-area {
+    min-height: 32px; padding: 4px;
+  }
+
   .info-title { 
     font-weight: bold; font-size: 11px; color: #eee; 
     line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     max-width: 100%; margin-bottom: 0;
   }
+  .board.mode-filter .info-title { font-size: 13px; }
+
   .info-sub { 
     display: none; font-size: 10px; color: #aaa; 
     line-height: 1.1; white-space: nowrap;
   }
-  .board.view-detail .cell.card .info-area {
+  
+  /* Zoom 2.0以上 OR フィルターモード は詳細表示 */
+  .board.view-detail .cell.card .info-area,
+  .board.mode-filter .cell.card .info-area {
     flex-direction: row; align-items: center; justify-content: center; gap: 4px; 
   }
-  .board.view-detail .info-sub { display: inline-block; }
-  .board.view-detail .info-sub::before { content: "("; }
-  .board.view-detail .info-sub::after { content: ")"; }
+  .board.view-detail .info-sub,
+  .board.mode-filter .info-sub { display: inline-block; }
+  
+  .board.view-detail .info-sub::before,
+  .board.mode-filter .info-sub::before { content: "("; }
+  .board.view-detail .info-sub::after,
+  .board.mode-filter .info-sub::after { content: ")"; }
 
   .cell.spacer {
     background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.1);
@@ -225,7 +302,6 @@
     font-size: 11px; color: #aaa; border: 1px solid #444;
   }
 
-  /* メニューリスト */
   .menu-list { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
   .menu-btn {
     background: #333; border: 1px solid #444; color: #eee;
@@ -234,7 +310,6 @@
   }
   .menu-btn i { width: 20px; text-align: center; color: #888; }
 
-  /* カテゴリグリッド */
   .cat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 16px; }
   .cat-btn {
     background: #252525; border: 1px solid #333; color: #ddd;
@@ -258,26 +333,11 @@
 </head>
 <body>
 
-<div id="modeIndicator" class="mode-indicator"></div>
-
 <div class="viewport" id="viewport">
   <div id="board" class="board"></div>
 </div>
 
-<div class="toolbar">
-  <button class="tool-btn" onclick="app.openSearchModal()">
-    <i class="fa-solid fa-magnifying-glass"></i>
-    <span>検索・編集</span>
-  </button>
-  <button class="tool-btn" onclick="app.resetView()">
-    <i class="fa-solid fa-layer-group"></i>
-    <span id="mySelectionLabel">マイ選抜</span>
-  </button>
-  <button class="tool-btn" onclick="app.openSettingsModal()">
-    <i class="fa-solid fa-gear"></i>
-    <span>設定</span>
-  </button>
-</div>
+<div id="toolbar" class="toolbar"></div>
 
 <div id="searchModal" class="modal-overlay">
   <div class="modal-window">
@@ -321,10 +381,11 @@
 
 <script>
 /**
- * Horse Board Logic (v26: Kana Drill-down & Count)
- * - 50音検索を階層化 (行選択 -> 文字選択)
- * - 各ボタンに該当件数を表示
- * - 0件のボタンは無効化
+ * Horse Board Logic (v27: Filter UX & Layout)
+ * - Removed top indicator.
+ * - Toolbar adapts to View Mode (Show/Hide Back button).
+ * - Filter Mode: Flex layout, no spacers, larger cards.
+ * - Card toggle button for quick Add/Remove.
  */
 
 const CONFIG = {
@@ -370,17 +431,16 @@ const app = {
     try {
       this.board = document.getElementById("board");
       this.viewport = document.getElementById("viewport");
-      this.modeIndicator = document.getElementById("modeIndicator");
-      this.mySelectionLabel = document.getElementById("mySelectionLabel");
+      this.toolbar = document.getElementById("toolbar");
       this.zoomDisp = document.getElementById("zoomDisp");
       
       await this.loadMasterData();
       this.loadUserState();
       
       this.updateRenderItems();
+      this.updateUIState(); // 先にUIを作ってからRender
       this.render();
       this.updateZoomStyle();
-      this.updateUIState();
       this.attachEvents();
     } catch(e) {
       alert("初期化エラー: " + e);
@@ -427,19 +487,13 @@ const app = {
           .filter(h => h.sire && h.sire.trim() === targetSire)
           .map(h => ({ ...h, type: 'card' }));
       } else if (state.filterType === 'kana') {
-        // カナフィルタ処理（単一文字対応）
-        // フィルター値が "ア" など単一文字の場合と "ア行" の場合に対応
         const target = state.filterValue;
-        
-        // 行指定（旧互換）か、文字指定か
         if (KANA_MAP[target]) {
-            // 行指定（使わないかもだが一応）
             const chars = KANA_MAP[target];
             items = state.masterData
               .filter(h => chars.includes(h.name.charAt(0)))
               .map(h => ({ ...h, type: 'card' }));
         } else {
-            // 文字指定（ア、ガ、ヴ...）
             items = state.masterData
               .filter(h => h.name.charAt(0) === target)
               .map(h => ({ ...h, type: 'card' }));
@@ -453,13 +507,21 @@ const app = {
   render() {
     this.board.innerHTML = "";
     const displayList = [...state.renderItems];
-    const remainder = displayList.length % CONFIG.columnCount;
-    if (remainder !== 0) {
-      const needed = CONFIG.columnCount - remainder;
-      for (let i = 0; i < needed; i++) displayList.push({ type: 'spacer' });
-    }
-    if (displayList.length === 0) {
-       for (let i = 0; i < CONFIG.columnCount; i++) displayList.push({ type: 'spacer' });
+    
+    // スペーサーはマイ選抜モードのみ生成
+    if (state.viewMode === 'my') {
+        this.board.classList.remove('mode-filter');
+        const remainder = displayList.length % CONFIG.columnCount;
+        if (remainder !== 0) {
+          const needed = CONFIG.columnCount - remainder;
+          for (let i = 0; i < needed; i++) displayList.push({ type: 'spacer' });
+        }
+        if (displayList.length === 0) {
+           for (let i = 0; i < CONFIG.columnCount; i++) displayList.push({ type: 'spacer' });
+        }
+    } else {
+        // フィルターモードはFlexboxレイアウト
+        this.board.classList.add('mode-filter');
     }
 
     const fragment = document.createDocumentFragment();
@@ -481,7 +543,13 @@ const app = {
       const imgPath = `assets/images/${item.id}.jpeg`;
       const sireName = item.sire || "不明";
       
+      // 選択状態のチェック
+      const isSelected = state.mySelectionIds.includes(item.id);
+      
       el.innerHTML = `
+        <div class="selection-toggle ${isSelected ? 'active' : ''}" onclick="app.toggleSelectionOnCard('${item.id}', this, event)">
+            <div class="toggle-icon"></div>
+        </div>
         <img src="${imgPath}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
         <div class="placeholder-icon" style="display:none"><i class="fa-solid fa-horse-head"></i></div>
         <div class="info-area">
@@ -491,6 +559,23 @@ const app = {
       `;
     }
     return el;
+  },
+  
+  // カード上のチェックボタンでトグル（再描画なしで高速反映）
+  toggleSelectionOnCard(id, btnEl, e) {
+    e.stopPropagation(); // ドラッグやジャンプの暴発を防ぐ
+    
+    const idx = state.mySelectionIds.indexOf(id);
+    if (idx >= 0) {
+        state.mySelectionIds.splice(idx, 1);
+        btnEl.classList.remove('active');
+    } else {
+        state.mySelectionIds.push(id);
+        btnEl.classList.add('active');
+    }
+    this.saveUserState();
+    // マイ選抜モードで見ている場合は即座に消えるのが正しい挙動だが
+    // 誤操作防止のため、次回描画時まで残す（あるいは即座に消すか？今回は即反映しない）
   },
 
   updateZoomStyle() {
@@ -505,16 +590,32 @@ const app = {
     }
   },
   
+  // ツールバーの書き換え（これがメイン）
   updateUIState() {
     if (state.viewMode === 'my') {
-      this.modeIndicator.style.display = 'none';
-      this.mySelectionLabel.textContent = "マイ選抜";
-      this.mySelectionLabel.parentElement.classList.add("active");
+      this.toolbar.classList.remove('mode-filter');
+      this.toolbar.innerHTML = `
+        <button class="tool-btn" onclick="app.openSearchModal()">
+          <i class="fa-solid fa-magnifying-glass"></i><span>検索・編集</span>
+        </button>
+        <button class="tool-btn active">
+          <i class="fa-solid fa-layer-group"></i><span>マイ選抜</span>
+        </button>
+        <button class="tool-btn" onclick="app.openSettingsModal()">
+          <i class="fa-solid fa-gear"></i><span>設定</span>
+        </button>
+      `;
     } else {
-      this.modeIndicator.style.display = 'block';
-      this.modeIndicator.textContent = `${state.filterValue} (表示のみ)`;
-      this.mySelectionLabel.textContent = "戻る";
-      this.mySelectionLabel.parentElement.classList.remove("active");
+      this.toolbar.classList.add('mode-filter');
+      this.toolbar.innerHTML = `
+        <div class="filter-status">
+            <span>表示中:</span>
+            ${state.filterValue} (${state.renderItems.length}頭)
+        </div>
+        <button class="back-btn-large" onclick="app.resetView()">
+            <i class="fa-solid fa-arrow-left"></i> マイ選抜に戻る
+        </button>
+      `;
     }
   },
 
@@ -560,19 +661,14 @@ const app = {
       });
       container.appendChild(grid);
     } else if (tab === 'kana') {
-      // 50音検索（階層トップ：行選択）
       this.renderKanaRows(container);
     }
   },
   
-  // ★追加機能: 50音の階層表示ロジック
-  
-  // 指定された文字群に含まれる馬数を数える
   countKana(chars) {
     return state.masterData.filter(h => chars.includes(h.name.charAt(0))).length;
   },
   
-  // 第1段階: 行一覧を表示 (ア行...ワ行)
   renderKanaRows(container) {
     container.innerHTML = "";
     const grid = document.createElement('div');
@@ -596,17 +692,12 @@ const app = {
     container.appendChild(grid);
   },
   
-  // 第2段階: 文字一覧を表示 (ア, イ, ウ...)
   renderKanaSub(container, rowKey) {
     container.innerHTML = "";
-    
-    // 戻るボタン
     const backBtn = document.createElement('div');
     backBtn.className = 'back-btn';
     backBtn.innerHTML = '<i class="fa-solid fa-chevron-left"></i> 戻る';
-    backBtn.onclick = () => {
-        this.renderKanaRows(container);
-    };
+    backBtn.onclick = () => { this.renderKanaRows(container); };
     container.appendChild(backBtn);
     
     const grid = document.createElement('div');
@@ -614,17 +705,14 @@ const app = {
     
     const chars = KANA_MAP[rowKey];
     chars.forEach(char => {
-        // 1文字でカウント
         const count = this.countKana([char]);
-        
         const btn = document.createElement('div');
         btn.className = `cat-btn ${count === 0 ? 'disabled' : ''}`;
         btn.innerHTML = `<span>${char}</span> <span class="cat-count">${count}</span>`;
-        
         if (count > 0) {
             btn.onclick = () => {
                 this.closeModal('searchModal');
-                this.applyFilter('kana', char); // 1文字でフィルタ
+                this.applyFilter('kana', char);
             };
         }
         grid.appendChild(btn);
@@ -710,8 +798,8 @@ const app = {
     state.filterValue = value;
     
     this.updateRenderItems();
+    this.updateUIState(); // ツールバー更新
     this.render();
-    this.updateUIState();
     this.viewport.scrollTop = 0;
   },
   
@@ -720,8 +808,8 @@ const app = {
     state.filterType = null;
     state.filterValue = null;
     this.updateRenderItems();
+    this.updateUIState(); // ツールバー戻す
     this.render();
-    this.updateUIState();
   },
 
   exportData() {
@@ -891,6 +979,7 @@ const app = {
             const dragHtml = dragEl.innerHTML;
             const dragIdAttr = dragEl.dataset.horseId;
             
+            // チェック状態も同期（innerHTMLに含まれるため）
             dragEl.innerHTML = targetCell.innerHTML;
             dragEl.dataset.horseId = targetCell.dataset.horseId;
             dragEl.classList.remove("is-placeholder"); 
