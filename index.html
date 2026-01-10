@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (V34: Name Protect)</title>
+<title>Horse Board (V35: Icon Only & Tab Reorder)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -33,7 +33,7 @@
     background: rgba(0,0,0,0.9);
     backdrop-filter: blur(10px);
     display: flex; align-items: center; justify-content: center;
-    gap: 60px; 
+    gap: 80px; /* 文字を消したので間隔を少し広げて押しやすく */
     padding: 0 16px; z-index: 10000;
     border-top: 1px solid rgba(255,255,255,0.15);
     transition: background 0.3s;
@@ -41,12 +41,13 @@
   
   .tool-btn {
     background: none; border: none;
-    color: #888; display: flex; flex-direction: column; align-items: center;
-    font-size: 10px; gap: 4px; cursor: pointer;
-    width: 60px;
+    color: #888; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: 10px; gap: 0; cursor: pointer;
+    width: 60px; height: 100%;
   }
-  .tool-btn i { font-size: 20px; margin-bottom: 2px; }
-  .tool-btn:active { transform: scale(0.95); }
+  /* アイコンを少し大きく */
+  .tool-btn i { font-size: 24px; margin-bottom: 0; }
+  .tool-btn:active { transform: scale(0.90); color: #fff; }
 
   /* フィルターモード用ツールバー */
   .toolbar.mode-filter {
@@ -149,9 +150,9 @@
     color: #555; font-size: calc(24px * var(--zoom));
   }
 
-  /* --- カード内テキストエリア (V34修正版) --- */
+  /* --- カード内テキストエリア (名前保護・父馬縮小) --- */
   .cell.card .info-area {
-    padding: 2px 4px; /* 横パディング少し増やす */
+    padding: 2px 4px;
     background: var(--card-bg);
     display: flex; flex-direction: column;
     justify-content: center; align-items: center;     
@@ -163,7 +164,6 @@
     font-weight: bold; font-size: 11px; color: #eee; 
     line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     margin-bottom: 0;
-    /* デフォルトでは幅100%まで許容 */
     max-width: 100%;
   }
   
@@ -173,30 +173,29 @@
     overflow: hidden; text-overflow: ellipsis;
   }
   
-  /* 詳細表示・フィルター表示時の横並び設定 */
   .board.view-detail .cell.card .info-area,
   .board.mode-filter .cell.card .info-area {
     flex-direction: row; 
-    align-items: baseline; /* ベースライン揃えで見やすく */
-    justify-content: center; /* 基本中央、溢れると左が見切れる恐れあるが一旦中央 */
+    align-items: baseline; 
+    justify-content: center; 
     gap: 4px; 
     flex-wrap: nowrap;
   }
   
-  /* V34: 馬名は絶対に縮めない設定 */
+  /* 名前は縮めない */
   .board.view-detail .info-title,
   .board.mode-filter .info-title {
-    flex-shrink: 0; /* これが最強の保護 */
+    flex-shrink: 0; 
     min-width: auto;
     max-width: 100%;
   }
 
-  /* V34: 父馬名は限界まで縮める設定 */
+  /* 父馬は縮める */
   .board.view-detail .info-sub,
   .board.mode-filter .info-sub { 
     display: inline-block; 
-    flex-shrink: 100; /* 圧倒的に縮みやすくする */
-    min-width: 0;     /* これがないとFlexboxは縮まない */
+    flex-shrink: 100; 
+    min-width: 0;     
     max-width: 100%;
   }
   
@@ -208,14 +207,14 @@
   /* チェックマーク */
   .mini-check {
     display: none; 
-    width: 16px; height: 16px; /* 少し小さく */
+    width: 16px; height: 16px;
     background: #666; 
     border-radius: 50%;
     align-items: center; justify-content: center;
     font-size: 9px; color: #000; 
     cursor: pointer;
     margin-left: 2px; 
-    flex-shrink: 0; /* 絶対に潰さない */
+    flex-shrink: 0; 
   }
   
   .board.mode-filter .mini-check { display: flex; }
@@ -296,11 +295,10 @@
   }
   .search-item:active { background: #2a2a2a; }
   
-  /* --- モーダルリストアイテム (V34修正) --- */
+  /* モーダルリストアイテム */
   .item-left { 
     display: flex; align-items: center; gap: 12px; 
-    flex: 1; 
-    min-width: 0; /* これ重要！子の省略記号を機能させるため */
+    flex: 1; min-width: 0; 
   }
   
   .item-check { 
@@ -312,29 +310,19 @@
   .item-check.checked::after { content: "✔"; font-size: 12px; }
   
   .item-info { 
-    display: flex; 
-    flex-direction: row; /* 横並び */
-    align-items: baseline; 
-    gap: 8px; 
-    overflow: hidden; 
-    flex: 1; 
-    min-width: 0; /* ここも重要 */
+    display: flex; flex-direction: row; align-items: baseline; 
+    gap: 8px; overflow: hidden; flex: 1; min-width: 0; 
   }
   
   .item-name { 
     font-size: 14px; font-weight: bold; color: #eee;
-    white-space: nowrap;
-    /* V34: 馬名は絶対に縮めない */
-    flex-shrink: 0; 
+    white-space: nowrap; flex-shrink: 0; 
   }
   
   .item-sub { 
     font-size: 11px; color: #888;
-    white-space: nowrap; 
-    overflow: hidden; text-overflow: ellipsis; 
-    /* V34: 父馬名はスペースがなければ縮む */
-    flex-shrink: 1; 
-    min-width: 0; 
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+    flex-shrink: 1; min-width: 0; 
   }
   
   .item-jump {
@@ -387,9 +375,9 @@
       <button class="modal-close" onclick="app.closeModal('searchModal')">×</button>
     </div>
     <div class="modal-tabs">
-      <button class="tab-btn active" onclick="app.switchTab('all')">全頭リスト</button>
-      <button class="tab-btn" onclick="app.switchTab('sire')">父馬別</button>
+      <button class="tab-btn active" onclick="app.switchTab('sire')">種牡馬</button>
       <button class="tab-btn" onclick="app.switchTab('kana')">50音順</button>
+      <button class="tab-btn" onclick="app.switchTab('all')">全頭リスト</button>
     </div>
     <div class="modal-content" id="searchContent"></div>
   </div>
@@ -422,9 +410,11 @@
 
 <script>
 /**
- * Horse Board Logic (V34: Fixed Name Truncation)
- * - CSS overhaul to force Horse Name prioritization over Sire Name in both Cards and List.
- * - Used flex-shrink: 0 for names and min-width: 0 for sires.
+ * Horse Board Logic (V35: Icon Only & Tab Reorder)
+ * - Removed text from Toolbar buttons.
+ * - Default Search Tab is now "Sire" (Stud).
+ * - Tabs reordered: Sire -> Kana -> All.
+ * - Tab label changed from "Father" to "Stud" (種牡馬).
  */
 
 const CONFIG = {
@@ -447,7 +437,7 @@ const state = {
   filterValue: null,
   zoom: 1.0,
   renderItems: [],
-  activeTab: 'all' 
+  activeTab: 'sire' // ★初期タブを「種牡馬(sire)」に変更
 };
 
 // カナ分類
@@ -626,12 +616,13 @@ const app = {
   updateUIState() {
     if (state.viewMode === 'my') {
       this.toolbar.classList.remove('mode-filter');
+      // ★アイコンのみに変更（文字削除）
       this.toolbar.innerHTML = `
         <button class="tool-btn" onclick="app.openSearchModal()">
-          <i class="fa-solid fa-magnifying-glass"></i><span>検索・編集</span>
+          <i class="fa-solid fa-magnifying-glass"></i>
         </button>
         <button class="tool-btn" onclick="app.openSettingsModal()">
-          <i class="fa-solid fa-gear"></i><span>設定</span>
+          <i class="fa-solid fa-gear"></i>
         </button>
       `;
     } else {
@@ -667,9 +658,12 @@ const app = {
     
     const tabs = document.querySelectorAll('.tab-btn');
     tabs.forEach(t => t.classList.remove('active'));
-    if(tab === 'all') tabs[0].classList.add('active');
-    if(tab === 'sire') tabs[1].classList.add('active');
-    if(tab === 'kana') tabs[2].classList.add('active');
+    
+    // ★タブの並び順変更に伴うインデックス修正
+    // 0: sire, 1: kana, 2: all
+    if(tab === 'sire') tabs[0].classList.add('active');
+    if(tab === 'kana') tabs[1].classList.add('active');
+    if(tab === 'all')  tabs[2].classList.add('active');
     
     const container = document.getElementById('searchContent');
     container.innerHTML = "";
