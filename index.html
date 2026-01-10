@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (V38: High Attention)</title>
+<title>Horse Board (V39: Neon Pulse)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -194,35 +194,30 @@
   .mini-check.checked { background: #666; color: #fff; }
   .mini-check i { pointer-events: none; }
 
-  /* ★ V38: 激しく主張するアニメーション 
-   - 拡大 (Scale 1.15)
-   - 振動 (Translate X)
-   - 強発光 (Box Shadow & Border)
-   - 最前面表示 (Z-Index)
-  */
-  @keyframes super-flash {
+  /* ★ V39: 振動なし・ネオン＆フラッシュ強調 */
+  @keyframes neon-pulse {
     0%, 100% {
-      transform: scale(1.0) rotate(0deg);
+      transform: scale(1.0);
       border-color: #444;
       box-shadow: none;
+      background-color: var(--card-bg);
       z-index: 1;
     }
-    /* 激しい振動 */
-    10%, 90% { transform: scale(1.15) translate(-2px, 0); }
-    20%, 80% { transform: scale(1.15) translate(2px, 0); }
-    30%, 50%, 70% { transform: scale(1.15) translate(-4px, 0); }
-    40%, 60% { transform: scale(1.15) translate(4px, 0); }
-    
-    /* 強発光 */
     50% {
+      /* 少し拡大して主張 */
+      transform: scale(1.1);
+      /* ボーダーを白く */
       border-color: #fff;
-      box-shadow: 0 0 50px rgba(255, 255, 0, 0.8), inset 0 0 20px rgba(255, 255, 0, 0.5);
-      z-index: 1000; /* 確実に一番手前に */
+      /* 背景を少し明るく（フラッシュ） */
+      background-color: #443300;
+      /* 強烈なネオン発光 */
+      box-shadow: 0 0 50px rgba(255, 215, 0, 0.9), inset 0 0 30px rgba(255, 215, 0, 0.4);
+      z-index: 1000;
     }
   }
   
   .cell.highlight {
-    animation: super-flash 0.8s ease-in-out infinite; /* JSで止めるまでループ */
+    animation: neon-pulse 1.0s ease-in-out infinite; 
   }
 
   .cell.spacer {
@@ -409,8 +404,9 @@
 
 <script>
 /**
- * Horse Board Logic (V38: High Attention Jump)
- * - Improved highlight animation with shake, zoom, and glow (super-flash).
+ * Horse Board Logic (V39: Neon Pulse - No Vibrate)
+ * - Removed translation shake.
+ * - Enhanced glow/pulse for easier visibility.
  */
 
 const CONFIG = {
