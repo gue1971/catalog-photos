@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (Dynamic Info)</title>
+<title>Horse Board (Compact Center)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -52,7 +52,6 @@
     touch-action: pan-x pan-y pinch-zoom;
   }
 
-  /* ボード */
   .board {
     display: grid;
     grid-template-columns: repeat(12, 1fr);
@@ -64,7 +63,6 @@
     transform-origin: 0 0;
   }
 
-  /* セル */
   .cell {
     position: relative;
     border-radius: calc(2px * var(--zoom));
@@ -95,57 +93,58 @@
     color: #555; font-size: calc(24px * var(--zoom));
   }
 
-  /* 情報エリア */
+  /* ★情報エリアの修正：高さ最小化＆中央揃え徹底 */
   .cell.card .info-area {
-    padding: 4px 2px;
+    /* パディングを限界まで削る */
+    padding: 2px 2px;
     background: var(--card-bg);
-    /* デフォルトは中央揃え */
+    
     display: flex; 
+    /* デフォルト(Zoom小): 縦積み・中央揃え */
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
+    justify-content: center; /* 縦方向中央 */
+    align-items: center;     /* 横方向中央 */
+    
     flex-grow: 0; 
-    min-height: 28px; /* 1行用の高さ */
+    /* 文字サイズ11px + 行間など考慮してギリギリまで下げる */
+    min-height: 20px; 
     transition: min-height 0.2s;
   }
 
-  /* 馬名（常に表示・太字） */
   .info-title { 
     font-weight: bold;
-    font-size: 11px; /* 固定サイズ */
+    font-size: 11px; /* 固定 */
     color: #eee; 
-    line-height: 1.2;
+    line-height: 1.1; /* 行間も少し詰める */
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     max-width: 100%;
+    margin-bottom: 0; /* 余計な隙間を削除 */
   }
 
-  /* 父名（デフォルトは非表示） */
   .info-sub { 
-    display: none; /* 初期状態は隠す */
-    font-size: 10px; /* 固定サイズ */
+    display: none; 
+    font-size: 10px; /* 固定 */
     color: #aaa; 
-    line-height: 1.2;
+    line-height: 1.1;
     white-space: nowrap;
   }
 
-  /* ★詳細モード（ズーム2.0以上）のスタイル上書き */
+  /* ★詳細モード（ズーム2.0以上） */
   .board.view-detail .cell.card .info-area {
-    /* 横並びにする */
+    /* 横並び */
     flex-direction: row; 
-    align-items: baseline; /* 文字のベースラインを揃える */
-    gap: 4px; /* 馬名と父名の間の隙間 */
+    /* 縦方向も「center」にしてど真ん中に持ってくる */
+    align-items: center; 
+    /* 横方向も「center」にして左右の真ん中に持ってくる */
+    justify-content: center;
+    gap: 4px; 
   }
 
-  .board.view-detail .info-sub {
-    display: inline-block; /* 表示する */
-  }
-
-  /* カッコをCSSでつける */
+  .board.view-detail .info-sub { display: inline-block; }
   .board.view-detail .info-sub::before { content: "("; }
   .board.view-detail .info-sub::after { content: ")"; }
 
 
-  /* スペーサー */
   .cell.spacer {
     background: rgba(255,255,255,0.03);
     border: 1px dashed rgba(255,255,255,0.1);
@@ -155,7 +154,7 @@
   }
   .cell.spacer::after {
     content: ""; display: block; flex-grow: 1;
-    min-height: 28px;
+    min-height: 20px; /* カードに合わせる */
     border-top: 1px solid rgba(255,255,255,0.05);
   }
 
@@ -213,17 +212,16 @@
 
 <script>
 /**
- * Horse Board Logic (v20: Dynamic Info Layout)
- * - Zoom < 2.0: Show Name only (1 line).
- * - Zoom >= 2.0: Show Name (Sire) inline.
- * - Text size is fixed (not scaled with zoom).
+ * Horse Board Logic (v21: Compact Center Fixed)
+ * - Info area height reduced to 20px.
+ * - Flex centering applied strictly for both zoom modes.
  */
 
 const CONFIG = {
   columnCount: 12, 
   minZoom: 1.0,
   maxZoom: 5.0,
-  detailThreshold: 2.0, // ここが切り替えライン
+  detailThreshold: 2.0, 
   storageKey: "horse_board_v15_grid",
   
   longPressDelay: 250, 
@@ -399,7 +397,6 @@ const app = {
     document.documentElement.style.setProperty('--zoom', state.zoom);
     this.zoomVal.textContent = Math.round(state.zoom * 100) + "%";
     
-    // 閾値判定：クラスを付け替えるだけでCSSが自動でレイアウトを変える
     if (state.zoom >= CONFIG.detailThreshold) {
       this.board.classList.add("view-detail");
     } else {
