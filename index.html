@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (Database Viewer)</title>
+<title>Horse Board (V24: Search & Flash Fix)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -26,7 +26,6 @@
     touch-action: manipulation; 
   }
 
-  /* ツールバー (超シンプル化) */
   .toolbar {
     position: fixed; bottom: 0; left: 0; right: 0;
     height: 54px;
@@ -48,7 +47,6 @@
   .tool-btn.active { color: var(--accent); }
   .tool-btn:active { transform: scale(0.95); }
 
-  /* ビューポート */
   .viewport {
     width: 100vw;
     height: calc(100vh - 54px);
@@ -58,7 +56,6 @@
     touch-action: manipulation;
   }
 
-  /* 現在のモード表示（画面上部） */
   .mode-indicator {
     position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
     background: rgba(0, 120, 255, 0.9); color: #fff;
@@ -66,10 +63,9 @@
     font-size: 12px; font-weight: bold;
     z-index: 5000; pointer-events: none;
     box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-    display: none; /* マイ選抜以外で表示 */
+    display: none; 
   }
 
-  /* ボード */
   .board {
     display: grid;
     grid-template-columns: repeat(12, 1fr);
@@ -77,11 +73,10 @@
     width: calc(100% * var(--zoom));
     padding: 8px;
     box-sizing: border-box;
-    padding-bottom: 300px; /* 検索ジャンプ時の余白確保 */
+    padding-bottom: 300px; 
     transform-origin: 0 0;
   }
 
-  /* セル */
   .cell {
     position: relative;
     border-radius: calc(2px * var(--zoom));
@@ -92,20 +87,20 @@
     background: #333; height: auto; 
   }
 
-  /* カードスタイル */
   .cell.card {
     background: var(--card-bg);
     box-shadow: 0 2px 4px rgba(0,0,0,0.5);
     border: 1px solid #444;
   }
   
-  /* ジャンプ時のハイライトアニメーション */
+  /* ★修正: 点滅アニメーション（3回点滅して気づかせる） */
   @keyframes flash {
-    0% { border-color: #ff0; box-shadow: 0 0 20px #ff0; z-index: 100; transform: scale(1.1); }
-    100% { border-color: #444; box-shadow: 0 2px 4px rgba(0,0,0,0.5); z-index: 1; transform: scale(1.0); }
+    0%, 100% { border-color: #444; box-shadow: none; transform: scale(1.0); z-index: 1; }
+    50% { border-color: #ff0; box-shadow: 0 0 30px #ff0; transform: scale(1.1); z-index: 100; }
   }
   .cell.highlight {
-    animation: flash 1.5s ease-out;
+    /* 1秒間隔で3回繰り返す */
+    animation: flash 1s ease-in-out 3;
   }
 
   .cell.card img {
@@ -119,7 +114,6 @@
     color: #555; font-size: calc(24px * var(--zoom));
   }
 
-  /* 情報エリア */
   .cell.card .info-area {
     padding: 2px 2px;
     background: var(--card-bg);
@@ -136,7 +130,6 @@
     display: none; font-size: 10px; color: #aaa; 
     line-height: 1.1; white-space: nowrap;
   }
-  /* Zoom 2.0以上 */
   .board.view-detail .cell.card .info-area {
     flex-direction: row; align-items: center; justify-content: center; gap: 4px; 
   }
@@ -154,7 +147,6 @@
   .cell.pressed { transform: scale(0.95); transition: transform 0.1s; filter: brightness(1.2); }
   body.is-dragging { touch-action: none; overflow: hidden; }
 
-  /* ゴースト */
   .ghost {
     position: fixed; z-index: 9999; width: 120px;
     border-radius: 6px; overflow: hidden;
@@ -167,7 +159,6 @@
   .ghost .info-title { font-size: 12px; font-weight: bold; color: #fff; }
   .ghost .info-sub { display: block; font-size: 10px; color: #aaa; }
 
-  /* --- モーダル（検索・メニュー） --- */
   .modal-overlay {
     position: fixed; top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(0,0,0,0.6); backdrop-filter: blur(5px);
@@ -205,7 +196,6 @@
     -webkit-overflow-scrolling: touch;
   }
   
-  /* 検索リスト */
   .search-list { list-style: none; padding: 0; margin: 0; }
   .search-item {
     display: flex; align-items: center; justify-content: space-between;
@@ -231,7 +221,6 @@
     font-size: 11px; color: #aaa; border: 1px solid #444;
   }
 
-  /* 設定メニュー用 */
   .menu-list { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
   .menu-btn {
     background: #333; border: 1px solid #444; color: #eee;
@@ -240,12 +229,13 @@
   }
   .menu-btn i { width: 20px; text-align: center; color: #888; }
 
-  /* カテゴリグリッド */
   .cat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 16px; }
   .cat-btn {
     background: #252525; border: 1px solid #333; color: #ddd;
     padding: 12px; border-radius: 6px; text-align: center; font-size: 13px;
+    cursor: pointer;
   }
+  .cat-btn:active { background: #444; }
   
   #fileInput { display: none; }
 </style>
@@ -285,8 +275,7 @@
       <button class="tab-btn" onclick="app.switchTab('sire')">父馬別</button>
       <button class="tab-btn" onclick="app.switchTab('kana')">50音順</button>
     </div>
-    <div class="modal-content" id="searchContent">
-      </div>
+    <div class="modal-content" id="searchContent"></div>
   </div>
 </div>
 
@@ -317,11 +306,9 @@
 
 <script>
 /**
- * Horse Board Logic (v23: Database & Viewer Edition)
- * - "My Selection" (Persistent, Sortable) vs "Filter View" (Temporary, Read-only).
- * - Master Data Driven.
- * - Search & Jump functionality.
- * - Interaction fixes (iPad/Mobile) preserved.
+ * Horse Board Logic (v24: Kana Search & Flash Fix)
+ * - Flash animation: 3 times, longer duration, delayed start.
+ * - Kana Search: Implemented using name first character detection.
  */
 
 const CONFIG = {
@@ -329,30 +316,38 @@ const CONFIG = {
   minZoom: 1.0,
   maxZoom: 5.0,
   detailThreshold: 2.0, 
-  storageKey: "horse_board_v23_db", // Key変更（データ構造が変わるため）
+  storageKey: "horse_board_v23_db",
   
   longPressDelay: 300, 
   doubleTapDelay: 350,
   moveThreshold: 10
 };
 
-// 状態管理
 const state = {
-  masterData: [], // 全データ（JSON由来）
-  
-  // 保存されるデータ
-  mySelectionIds: [], // マイ選抜のIDリスト（並び順含む）
-  
-  // 一時的な表示状態
-  viewMode: 'my', // 'my' | 'filter'
-  filterType: null, // 'sire', 'kana', etc.
+  masterData: [], 
+  mySelectionIds: [], 
+  viewMode: 'my', 
+  filterType: null, 
   filterValue: null,
-  
   zoom: 1.0,
-  
-  // 表示用計算済みリスト
   renderItems: [] 
 };
+
+// カナ分類マップ
+const KANA_MAP = {
+  "ア行": ["ア","イ","ウ","エ","オ","ァ","ィ","ゥ","ェ","ォ","ヴ"],
+  "カ行": ["カ","キ","ク","ケ","コ","ガ","ギ","グ","ゲ","ゴ","ヵ","ヶ"],
+  "サ行": ["サ","シ","ス","セ","ソ","ザ","ジ","ズ","ゼ","ゾ"],
+  "タ行": ["タ","チ","ツ","テ","ト","ダ","ヂ","ヅ","デ","ド","ッ"],
+  "ナ行": ["ナ","ニ","ヌ","ネ","ノ"],
+  "ハ行": ["ハ","ヒ","フ","ヘ","ホ","バ","ビ","ブ","ベ","ボ","パ","ピ","プ","ペ","ポ"],
+  "マ行": ["マ","ミ","ム","メ","モ"],
+  "ヤ行": ["ヤ","ユ","ヨ","ャ","ュ","ョ"],
+  "ラ行": ["ラ","リ","ル","レ","ロ"],
+  "ワ行": ["ワ","ヲ","ン","ー"]
+};
+
+function generateUniqueKey() { return `obj_${Date.now()}_${state.nextId++}`; }
 
 const app = {
   async init() {
@@ -379,11 +374,7 @@ const app = {
   async loadMasterData() {
     try {
       const res = await fetch(`data/horses.json?t=${Date.now()}`);
-      if (res.ok) {
-        const json = await res.json();
-        // IDで高速に引けるMapを作る必要はないが、一応重複排除など
-        state.masterData = json;
-      }
+      if (res.ok) state.masterData = await res.json();
     } catch (e) { state.masterData = []; }
   },
 
@@ -396,77 +387,53 @@ const app = {
         state.zoom = saved.zoom || 1.0;
       } catch(e) { console.error(e); }
     } else {
-      // 初回: 全データをマイ選抜に入れる（あるいは空にするか？要望では「全データ並べる」だった）
-      // ここではマスターデータの順に全IDを入れる
       state.mySelectionIds = state.masterData.map(h => h.id);
     }
   },
 
   saveUserState() {
-    const data = {
-      mySelectionIds: state.mySelectionIds,
-      zoom: state.zoom
-    };
+    const data = { mySelectionIds: state.mySelectionIds, zoom: state.zoom };
     localStorage.setItem(CONFIG.storageKey, JSON.stringify(data));
   },
 
-  // 現在のモードに合わせて表示するアイテムを決定
   updateRenderItems() {
     let items = [];
     
     if (state.viewMode === 'my') {
-      // マイ選抜：保存されたID順に並べる
-      // マスターデータに存在しないID（削除された馬など）はスキップ
       state.mySelectionIds.forEach(id => {
         const horse = state.masterData.find(h => h.id === id);
         if (horse) items.push({ ...horse, type: 'card' });
       });
-      // 12列埋めるためのスペーサーは「表示時」に計算
     } else if (state.viewMode === 'filter') {
-      // フィルターモード
       if (state.filterType === 'sire') {
         items = state.masterData
           .filter(h => h.sire === state.filterValue)
           .map(h => ({ ...h, type: 'card' }));
       } else if (state.filterType === 'kana') {
-        // 簡易的な実装: カナの先頭文字で判定（データに読み仮名がない場合はnameの先頭）
+        // カナフィルタ処理
+        const chars = KANA_MAP[state.filterValue] || [];
         items = state.masterData
-          .filter(h => this.checkKana(h.name, state.filterValue))
+          .filter(h => {
+             const firstChar = h.name.charAt(0);
+             return chars.includes(firstChar);
+          })
           .map(h => ({ ...h, type: 'card' }));
       }
-      // フィルター時はID順（あるいは年齢順）などでソート
       items.sort((a,b) => b.id.localeCompare(a.id)); 
     }
-    
     state.renderItems = items;
   },
 
-  checkKana(name, rowChar) {
-    // 厳密なカナ判定はデータが必要だが、簡易的に名前の先頭文字で判断
-    // 実際には horses.json に "yomi" などのフィールド推奨
-    // ここではデモとして「ア行」ならア～オを含むかで判定するロジックが必要だが
-    // 簡略化のため「全頭」以外は一旦父のみ実装とする（要望にあった父フィルター優先）
-    return true; 
-  },
-
-  // グリッドの整合性を保ちつつ描画
   render() {
     this.board.innerHTML = "";
-    
-    // アイテムを展開
     const displayList = [...state.renderItems];
-    
-    // スペーサー埋め
     const remainder = displayList.length % CONFIG.columnCount;
     if (remainder !== 0) {
       const needed = CONFIG.columnCount - remainder;
-      for (let i = 0; i < needed; i++) {
-        displayList.push({ type: 'spacer', id: `sp_${i}` });
-      }
+      for (let i = 0; i < needed; i++) displayList.push({ type: 'spacer' });
     }
-    // 少なくとも1行は表示
     if (displayList.length === 0) {
-       for (let i = 0; i < CONFIG.columnCount; i++) displayList.push({ type: 'spacer', id: `sp_${i}` });
+       for (let i = 0; i < CONFIG.columnCount; i++) displayList.push({ type: 'spacer' });
     }
 
     const fragment = document.createDocumentFragment();
@@ -484,7 +451,7 @@ const app = {
     el.dataset.type = item.type;
     
     if (item.type === 'card') {
-      el.dataset.horseId = item.id; // ドラッグやジャンプ識別用
+      el.dataset.horseId = item.id;
       const imgPath = `assets/images/${item.id}.jpeg`;
       const sireName = item.sire || "不明";
       
@@ -525,10 +492,9 @@ const app = {
     }
   },
 
-  // --- モーダル・検索機能 ---
   openSearchModal() {
     document.getElementById('searchModal').classList.add('open');
-    this.switchTab('all'); // デフォルトは全リスト
+    this.switchTab('all'); 
   },
   openSettingsModal() {
     document.getElementById('settingsModal').classList.add('open');
@@ -538,10 +504,8 @@ const app = {
   },
   
   switchTab(tab) {
-    // タブUI更新
     const tabs = document.querySelectorAll('.tab-btn');
     tabs.forEach(t => t.classList.remove('active'));
-    // event.targetが取れないので簡易実装(順番依存)
     if(tab === 'all') tabs[0].classList.add('active');
     if(tab === 'sire') tabs[1].classList.add('active');
     if(tab === 'kana') tabs[2].classList.add('active');
@@ -552,7 +516,6 @@ const app = {
     if (tab === 'all') {
       this.renderSearchList(container, state.masterData);
     } else if (tab === 'sire') {
-      // 父馬リスト生成
       const sires = [...new Set(state.masterData.map(h => h.sire).filter(s=>s))].sort();
       const grid = document.createElement('div');
       grid.className = 'cat-grid';
@@ -568,16 +531,17 @@ const app = {
       });
       container.appendChild(grid);
     } else if (tab === 'kana') {
-      // 50音リスト（簡易）
-      const kanaRows = ["ア行","カ行","サ行","タ行","ナ行","ハ行","マ行","ヤ行","ラ行","ワ行"];
+      // 50音リスト実装
       const grid = document.createElement('div');
       grid.className = 'cat-grid';
-      kanaRows.forEach(row => {
+      Object.keys(KANA_MAP).forEach(row => {
         const btn = document.createElement('div');
         btn.className = 'cat-btn';
         btn.textContent = row;
-        btn.style.opacity = "0.5"; // 未実装なので
-        // btn.onclick = ...
+        btn.onclick = () => {
+           this.closeModal('searchModal');
+           this.applyFilter('kana', row);
+        };
         grid.appendChild(btn);
       });
       container.appendChild(grid);
@@ -587,7 +551,6 @@ const app = {
   renderSearchList(container, horses) {
     const ul = document.createElement('ul');
     ul.className = 'search-list';
-    
     const mySet = new Set(state.mySelectionIds);
     
     horses.forEach(h => {
@@ -611,7 +574,6 @@ const app = {
     container.appendChild(ul);
   },
   
-  // マイ選抜への追加・削除
   toggleSelection(id) {
     const idx = state.mySelectionIds.indexOf(id);
     const el = document.getElementById(`chk_${id}`);
@@ -624,39 +586,39 @@ const app = {
       if(el) el.classList.add('checked');
     }
     this.saveUserState();
-    // 裏でレンダリング更新しておくとスムーズ
     if (state.viewMode === 'my') {
         this.updateRenderItems();
         this.render();
     }
   },
   
-  // 指定の馬へジャンプ（必要ならマイ選抜に追加して表示）
   jumpToHorse(id) {
     this.closeModal('searchModal');
     
-    // もしフィルターモードで、その馬が含まれていないならマイ選抜に戻す
-    // ただしユーザーは「その馬を見たい」ので、マイ選抜モードに戻るのが自然
     if (state.viewMode !== 'my') {
       this.resetView(); 
     }
     
-    // マイ選抜に入っているか確認
     if (!state.mySelectionIds.includes(id)) {
-      // 入ってなければ追加
       state.mySelectionIds.push(id);
       this.saveUserState();
       this.updateRenderItems();
       this.render();
     }
     
-    // DOMが更新されるのを待ってスクロール
+    // ★修正: スクロール待ち時間を増やし、アニメーションを確実に
     setTimeout(() => {
       const target = document.querySelector(`.cell[data-horse-id="${id}"]`);
       if (target) {
+        // scrollIntoViewは時間がかかるので、時間を稼ぐ
         target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        target.classList.add('highlight');
-        setTimeout(() => target.classList.remove('highlight'), 1500);
+        
+        // ★修正: 0.8秒待ってから点滅開始（スクロール完了を待つ）
+        setTimeout(() => {
+             target.classList.add('highlight');
+             // 3回点滅(約3秒)後にクラスを外す
+             setTimeout(() => target.classList.remove('highlight'), 3500);
+        }, 800);
       } else {
         alert("表示できませんでした");
       }
@@ -671,7 +633,6 @@ const app = {
     this.updateRenderItems();
     this.render();
     this.updateUIState();
-    // 上に戻す
     this.viewport.scrollTop = 0;
   },
   
@@ -684,7 +645,6 @@ const app = {
     this.updateUIState();
   },
 
-  // --- データ管理 ---
   exportData() {
     const data = { mySelectionIds: state.mySelectionIds, zoom: state.zoom };
     const str = JSON.stringify(data, null, 2);
@@ -708,7 +668,7 @@ const app = {
           state.mySelectionIds = json.mySelectionIds;
           state.zoom = json.zoom || 1.0;
           this.saveUserState();
-          this.resetView(); // マイ選抜に戻して再描画
+          this.resetView(); 
           alert("設定を読み込みました");
         }
       } catch(err) { alert("データ形式が違います"); }
@@ -723,22 +683,18 @@ const app = {
     location.reload();
   },
 
-  // --- イベント系 (Drag & Zoom & DoubleTap) ---
   attachEvents() {
     let pointerId = null;
     let startX=0, startY=0;
     let dragTimer = null;
     let lastTapTime = 0;
-    
     let isDragging = false;
     let isMultiTouch = false;
     let isMoving = false;
-    
     let dragEl = null;     
     let ghostEl = null;    
     let currentIndex = -1;
 
-    // Zoom shortcuts (PC)
     window.addEventListener("keydown", (e) => {
       if (e.target.tagName === 'INPUT') return;
       if (e.key === "+" || e.key === "=") { this.applyZoom(0.1); e.preventDefault(); }
@@ -746,7 +702,6 @@ const app = {
       else if (e.key === "0") { state.zoom = 1.0; this.updateZoomStyle(); this.saveUserState(); e.preventDefault(); }
     });
     
-    // Netkeiba open
     const showDetail = (el) => {
       el.classList.add("pressed");
       setTimeout(()=> el.classList.remove("pressed"), 200);
@@ -754,11 +709,8 @@ const app = {
       if (horseId) window.open(`https://db.netkeiba.com/horse/${horseId}`, '_blank'); 
     };
 
-    // Drag Start
     const startDrag = (el, x, y) => {
-      // フィルターモード中はドラッグ禁止（並び順を破壊するため）
       if (state.viewMode !== 'my') return;
-      
       if (isMultiTouch || isMoving) return;
 
       isDragging = true;
@@ -795,7 +747,7 @@ const app = {
       if (e.button !== 0) return;
       if (isMultiTouch) return;
       const cell = e.target.closest(".cell");
-      if (!cell || cell.dataset.type !== 'card') return; // スペーサーは掴めない
+      if (!cell || cell.dataset.type !== 'card') return; 
 
       pointerId = e.pointerId;
       startX = e.clientX; startY = e.clientY;
@@ -827,12 +779,10 @@ const app = {
       }
     });
 
-    // Touch Scroll
     this.viewport.addEventListener("touchmove", (e) => {
       if (isDragging) e.preventDefault();
     }, { passive: false });
 
-    // Swap Logic (Array manipulation)
     const handleSwapLogic = (x, y) => {
       if (ghostEl) ghostEl.style.display = 'none';
       let target = document.elementFromPoint(x, y);
@@ -844,7 +794,6 @@ const app = {
       if (targetCell && targetCell !== dragEl && this.board.contains(targetCell) && targetCell.dataset.type === 'card') {
         const targetIndex = Number(targetCell.dataset.index);
         
-        // 配列（マイ選抜ID）の並び替え
         const fromId = dragEl.dataset.horseId;
         const toId = targetCell.dataset.horseId;
         
@@ -852,17 +801,14 @@ const app = {
         const toIdxState = state.mySelectionIds.indexOf(toId);
         
         if (fromIdxState >= 0 && toIdxState >= 0) {
-            // Swap in state
             const temp = state.mySelectionIds[fromIdxState];
             state.mySelectionIds[fromIdxState] = state.mySelectionIds[toIdxState];
             state.mySelectionIds[toIdxState] = temp;
             
-            // Swap in renderItems (to keep sync)
             const tempItem = state.renderItems[currentIndex];
             state.renderItems[currentIndex] = state.renderItems[targetIndex];
             state.renderItems[targetIndex] = tempItem;
 
-            // DOM Swap
             const dragHtml = dragEl.innerHTML;
             const dragIdAttr = dragEl.dataset.horseId;
             
@@ -893,7 +839,7 @@ const app = {
         if (ghostEl) ghostEl.remove();
         if (dragEl) dragEl.classList.remove("is-placeholder");
         if (cell) cell.classList.remove("pressed");
-        this.saveUserState(); // 保存
+        this.saveUserState(); 
       } else {
         if (!isMoving && cell && cell.dataset.type === 'card') {
             cell.classList.remove("pressed");
@@ -912,13 +858,12 @@ const app = {
     this.board.addEventListener("pointerup", endInteraction);
     this.board.addEventListener("pointercancel", endInteraction);
     
-    // Pinch Zoom
     let initialDist = 0;
     let initialZoom = 1.0;
     this.viewport.addEventListener("touchstart", (e) => {
       if (e.touches.length >= 2) {
         isMultiTouch = true;
-        if (isDragging) endInteraction(e); // Cancel drag
+        if (isDragging) endInteraction(e); 
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
         initialDist = Math.hypot(dx, dy);
