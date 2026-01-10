@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (V30: Quick Re-Search)</title>
+<title>Horse Board (V31: Sire Counts)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -370,10 +370,8 @@
 
 <script>
 /**
- * Horse Board Logic (v30: Quick Re-Search & Tab Memory)
- * - Added "Change Condition" button in Filter Mode toolbar.
- * - Toolbar layout: [Change] [Status] [Back to MySelection].
- * - Remembers the last active tab in search modal.
+ * Horse Board Logic (V31: Sire Counts)
+ * - Added functionality to display total and checked counts in the Sire tab.
  */
 
 const CONFIG = {
@@ -396,7 +394,7 @@ const state = {
   filterValue: null,
   zoom: 1.0,
   renderItems: [],
-  activeTab: 'all' // ★追加: 最後に開いたタブを記憶
+  activeTab: 'all' 
 };
 
 // カナ分類
@@ -584,7 +582,6 @@ const app = {
         </button>
       `;
     } else {
-      // ★修正: フィルターモード時のツールバーに「条件変更」のボタンを追加
       this.toolbar.classList.add('mode-filter');
       this.toolbar.innerHTML = `
         <button class="filter-btn" onclick="app.openSearchModal()">
@@ -601,7 +598,6 @@ const app = {
     }
   },
 
-  // ★修正: 記憶しているタブを開く
   openSearchModal() {
     document.getElementById('searchModal').classList.add('open');
     this.switchTab(state.activeTab); 
@@ -614,7 +610,7 @@ const app = {
   },
   
   switchTab(tab) {
-    state.activeTab = tab; // ★記憶
+    state.activeTab = tab; 
     
     const tabs = document.querySelectorAll('.tab-btn');
     tabs.forEach(t => t.classList.remove('active'));
@@ -628,16 +624,29 @@ const app = {
     if (tab === 'all') {
       this.renderSearchList(container, state.masterData);
     } else if (tab === 'sire') {
-      const sireSet = new Set();
-      state.masterData.forEach(h => { if (h.sire) sireSet.add(h.sire.trim()); });
-      const sires = [...sireSet].sort();
+      // ------------------------------------------
+      // ★修正: 父馬の集計と表示フォーマット変更
+      // ------------------------------------------
+      const stats = {};
+      state.masterData.forEach(h => {
+        const s = h.sire ? h.sire.trim() : "不明";
+        if(!stats[s]) stats[s] = { total: 0, checked: 0 };
+        stats[s].total++;
+        if(state.mySelectionIds.includes(h.id)) stats[s].checked++;
+      });
+
+      const sires = Object.keys(stats).sort();
 
       const grid = document.createElement('div');
       grid.className = 'cat-grid';
       sires.forEach(sire => {
+        const info = stats[sire];
         const btn = document.createElement('div');
         btn.className = 'cat-btn';
-        btn.textContent = sire;
+        
+        // 名前を左、数値を右に配置（cat-countクラスを利用）
+        btn.innerHTML = `<span>${sire}</span> <span class="cat-count">${info.total} (${info.checked})</span>`;
+        
         btn.onclick = () => {
           this.closeModal('searchModal');
           this.applyFilter('sire', sire);
@@ -645,6 +654,7 @@ const app = {
         grid.appendChild(btn);
       });
       container.appendChild(grid);
+      
     } else if (tab === 'kana') {
       this.renderKanaRows(container);
     }
