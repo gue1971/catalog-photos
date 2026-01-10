@@ -491,7 +491,7 @@ const app = {
           this.save();
           alert("インポート完了");
         } else if (json.columns) {
-            // 旧形式も受け入れ
+            // 旧形式も受け入れる
             state.items = json.columns.flat();
             this.ensureGridCompleteness();
             this.render();
