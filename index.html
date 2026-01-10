@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (V40: Safety & Undo)</title>
+<title>Horse Board (V42: Rich Detail)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -194,27 +194,12 @@
   .mini-check.checked { background: #666; color: #fff; }
   .mini-check i { pointer-events: none; }
 
-  /* V39: 振動なし・ネオン＆フラッシュ強調 */
+  /* ジャンプ時のアニメーション（上品な強調） */
   @keyframes neon-pulse {
-    0%, 100% {
-      transform: scale(1.0);
-      border-color: #444;
-      box-shadow: none;
-      background-color: var(--card-bg);
-      z-index: 1;
-    }
-    50% {
-      transform: scale(1.1);
-      border-color: #fff;
-      background-color: #443300;
-      box-shadow: 0 0 50px rgba(255, 215, 0, 0.9), inset 0 0 30px rgba(255, 215, 0, 0.4);
-      z-index: 1000;
-    }
+    0%, 100% { transform: scale(1.0); border-color: #444; box-shadow: none; background-color: var(--card-bg); z-index: 1; }
+    50% { transform: scale(1.1); border-color: #fff; background-color: #443300; box-shadow: 0 0 50px rgba(255, 215, 0, 0.9); z-index: 1000; }
   }
-  
-  .cell.highlight {
-    animation: neon-pulse 1.0s ease-in-out infinite; 
-  }
+  .cell.highlight { animation: neon-pulse 1.0s ease-in-out infinite; }
 
   .cell.spacer {
     background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.1);
@@ -238,7 +223,7 @@
   .ghost .info-title { font-size: 12px; font-weight: bold; color: #fff; }
   .ghost .info-sub { display: block; font-size: 10px; color: #aaa; }
 
-  /* モーダル */
+  /* モーダル共通 */
   .modal-overlay {
     position: fixed; top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(0,0,0,0.6); backdrop-filter: blur(5px);
@@ -299,23 +284,16 @@
   }
   .search-item:active { background: #2a2a2a; }
   
-  /* リスト項目のレイアウト */
   .item-left { 
     display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; 
-    /* V40: 全体のクリック反応を無効化 */
     pointer-events: none;
   }
   
   .item-check { 
     width: 20px; height: 20px; border-radius: 4px; border: 2px solid #555;
     display: flex; align-items: center; justify-content: center; flex-shrink: 0; 
-    
-    /* V40: チェックボックスのみクリック有効化＆当たり判定拡大 */
-    pointer-events: auto;
-    position: relative;
-    cursor: pointer;
+    pointer-events: auto; position: relative; cursor: pointer;
   }
-  /* 当たり判定を透明な擬似要素で広げる */
   .item-check::before {
     content: ""; position: absolute;
     top: -15px; left: -15px; right: -15px; bottom: -15px;
@@ -332,11 +310,9 @@
     padding: 6px 12px; background: #333; border-radius: 4px;
     font-size: 11px; color: #aaa; border: 1px solid #444;
     flex-shrink: 0; margin-left: 8px;
-    /* ジャンプボタンはクリック有効 */
     pointer-events: auto;
   }
 
-  /* ジャンプ専用タブでのアイテム */
   .jump-only-item { padding: 14px 16px; font-size: 14px; color: #eee; border-bottom: 1px solid #333; cursor: pointer; }
   .jump-only-item:active { background: var(--accent); color: #fff; }
   .jump-sub { font-size: 11px; color: #888; margin-left: 8px; }
@@ -368,7 +344,7 @@
   
   #fileInput { display: none; }
 
-  /* V40: Undo Toast */
+  /* Undo Toast */
   #undoToast {
     position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(100px);
     background: #333; border: 1px solid #444; color: #fff;
@@ -388,6 +364,60 @@
     padding: 6px 12px; border-radius: 12px; font-size: 12px; font-weight: bold;
     cursor: pointer;
   }
+
+  /* ★ V42: 詳細カードモーダル */
+  .detail-card {
+    padding: 0;
+    display: flex; flex-direction: column;
+    height: 100%; background: #151515;
+  }
+  .detail-img-box {
+    width: 100%; aspect-ratio: 4/3; background: #000;
+    position: relative; flex-shrink: 0;
+  }
+  .detail-img-box img {
+    width: 100%; height: 100%; object-fit: contain;
+  }
+  .detail-header {
+    padding: 16px 20px; border-bottom: 1px solid #333;
+    background: #222;
+  }
+  .detail-name { font-size: 20px; font-weight: bold; margin-bottom: 4px; color: #fff; }
+  .detail-sub { font-size: 13px; color: #aaa; }
+  
+  .detail-body {
+    flex: 1; overflow-y: auto; padding: 20px;
+  }
+  .detail-table {
+    width: 100%; border-collapse: collapse; font-size: 14px;
+  }
+  .detail-table th, .detail-table td {
+    padding: 8px 0; border-bottom: 1px solid #333;
+  }
+  .detail-table th { width: 30%; color: #888; font-weight: normal; text-align: left; }
+  .detail-table td { width: 70%; color: #eee; font-weight: 500; text-align: right; }
+  
+  .detail-actions {
+    padding: 20px; background: #222; border-top: 1px solid #333;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;
+  }
+  .action-btn {
+    background: #333; border: 1px solid #444; color: #eee;
+    border-radius: 8px; padding: 12px 0;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    font-size: 11px; cursor: pointer; text-decoration: none;
+  }
+  .action-btn i { font-size: 20px; color: #aaa; }
+  .action-btn:active { background: #444; }
+  
+  .action-btn.netkeiba { border-color: #006400; background: rgba(0,100,0,0.2); }
+  .action-btn.netkeiba i { color: #4caf50; }
+  
+  /* 動画・PDFの制御用クラス */
+  .action-btn.disabled { opacity: 0.3; pointer-events: none; filter: grayscale(100%); }
+  .action-btn.movie i { color: #f44336; }
+  .action-btn.pdf i { color: #fff; }
+
 </style>
 
 </head>
@@ -419,6 +449,38 @@
   </div>
 </div>
 
+<div id="detailModal" class="modal-overlay">
+  <div class="modal-window" style="height: 85vh; max-height: 800px;">
+    <div class="detail-card">
+      <div class="detail-img-box">
+        <img id="detailImg" src="" onerror="this.src='data:image/svg+xml;base64,...'"> <button class="modal-close" onclick="app.closeModal('detailModal')" style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.5); width:32px; height:32px; border-radius:50%; color:#fff;">×</button>
+      </div>
+      <div class="detail-header">
+        <div class="detail-name" id="detailName">馬名</div>
+        <div class="detail-sub" id="detailSub">父馬名</div>
+      </div>
+      <div class="detail-body">
+        <table class="detail-table" id="detailTable">
+          </table>
+      </div>
+      <div class="detail-actions">
+        <a id="btnNetkeiba" class="action-btn netkeiba" target="_blank">
+          <i class="fa-solid fa-horse-head"></i>
+          <span>netkeiba</span>
+        </a>
+        <a id="btnMovie" class="action-btn movie disabled" target="_blank">
+          <i class="fa-brands fa-youtube"></i>
+          <span>募集動画</span>
+        </a>
+        <a id="btnPdf" class="action-btn pdf disabled" target="_blank">
+          <i class="fa-solid fa-file-pdf"></i>
+          <span>カタログ</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="settingsModal" class="modal-overlay">
   <div class="modal-window" style="height: auto;">
     <div class="modal-header">
@@ -446,9 +508,9 @@
 
 <script>
 /**
- * Horse Board Logic (V40: Safety & Undo)
- * - Click target on All List limited to checkbox (prevent accidental unchecks).
- * - Added 'Undo' toast to restore accidentally removed items to their original position.
+ * Horse Board Logic (V42: Rich Detail & Auto Mother Name)
+ * - Added logic to extract Mother Name from '募集馬名' by removing 'のXX'.
+ * - Added button logic for Movie and PDF (controlled by JSON fields).
  */
 
 const CONFIG = {
@@ -474,7 +536,6 @@ const state = {
   activeTab: 'sire',
   listFilter: 'all', 
   listSort: 'id',
-  // V40: Undo用
   lastOp: null, 
   undoTimer: null
 };
@@ -613,6 +674,71 @@ const app = {
       `;
     }
     return el;
+  },
+  
+  // ★ V42: 詳細カード表示機能（母名抽出ロジック追加）
+  showDetail(cell) {
+    cell.classList.add("pressed");
+    setTimeout(()=> cell.classList.remove("pressed"), 200);
+    
+    const horseId = cell.dataset.horseId;
+    const horse = state.masterData.find(h => String(h.id) === String(horseId));
+    if (!horse) return;
+
+    // 画像と基本情報
+    document.getElementById('detailImg').src = `assets/images/${horse.id}.jpeg`;
+    document.getElementById('detailName').textContent = horse.name;
+    document.getElementById('detailSub').textContent = horse.sire || '-';
+    
+    // 詳細情報
+    const d = horse.detail || {};
+    
+    // ★母名の抽出: 「〇〇の22」などの末尾「の数字」を削除
+    let motherName = d['募集馬名'] || '';
+    motherName = motherName.replace(/の\d+$/, ''); // 正規表現で末尾除去
+    
+    const table = document.getElementById('detailTable');
+    const fields = [
+      { k: '母', v: motherName }, // ★ここに母名を表示
+      { k: '母の父', v: d['dam_sire'] },
+      { k: 'クラブ', v: d['club'] },
+      { k: '募集価格', v: d['price'] ? d['price'] + '万円' : null },
+      { k: '厩舎', v: d['stable'] },
+      { k: '誕生日', v: d['birthday'] },
+      { k: '性別', v: d['sex'] },
+      { k: '測尺(体/胸/管)', v: (d['体高']&&d['胸囲']) ? `${d['体高']} / ${d['胸囲']} / ${d['管囲']}` : null },
+      { k: '馬体重', v: d['馬体重'] ? d['馬体重'] + 'kg' : null }
+    ];
+    
+    table.innerHTML = fields
+      .filter(f => f.v)
+      .map(f => `<tr><th>${f.k}</th><td>${f.v}</td></tr>`)
+      .join('');
+
+    // ボタンの状態制御 (JSONにlink_movie, link_pdfがあれば有効化)
+    const btnNet = document.getElementById('btnNetkeiba');
+    const btnMov = document.getElementById('btnMovie');
+    const btnPdf = document.getElementById('btnPdf');
+    
+    btnNet.href = `https://db.netkeiba.com/horse/${horse.id}`;
+    
+    if (horse.link_movie) {
+      btnMov.href = horse.link_movie;
+      btnMov.classList.remove('disabled');
+    } else {
+      btnMov.removeAttribute('href');
+      btnMov.classList.add('disabled');
+    }
+    
+    if (horse.link_pdf) {
+      btnPdf.href = horse.link_pdf;
+      btnPdf.classList.remove('disabled');
+    } else {
+      btnPdf.removeAttribute('href');
+      btnPdf.classList.add('disabled');
+    }
+
+    document.getElementById('detailModal').classList.add('open');
   },
   
   toggleSelectionOnCard(id, btnEl, e) {
@@ -882,7 +1008,8 @@ const app = {
       const li = document.createElement('li');
       li.className = 'search-item';
       li.innerHTML = `
-        <div class="item-left"> <div class="item-check ${isChecked ? 'checked' : ''}" id="chk_all_${h.id}" onclick="app.toggleSelectionAllTab('${h.id}')"></div>
+        <div class="item-left">
+          <div class="item-check ${isChecked ? 'checked' : ''}" id="chk_all_${h.id}" onclick="app.toggleSelectionAllTab('${h.id}')"></div>
           <div class="item-info">
             <div class="item-name">${h.name}</div>
             <div class="item-sub">${h.sire}</div>
@@ -903,9 +1030,7 @@ const app = {
     container.appendChild(ul);
   },
 
-  // V40: Undo機能付きトグル
   toggleSelectionAllTab(id) {
-    // 直前の状態を保存 (ディープコピー)
     state.lastOp = {
       list: [...state.mySelectionIds],
       time: Date.now()
@@ -930,18 +1055,14 @@ const app = {
     if (state.undoTimer) clearTimeout(state.undoTimer);
     state.undoTimer = setTimeout(() => {
       this.undoToast.classList.remove('show');
-    }, 4000); // 4秒後に消える
+    }, 4000); 
   },
   
   execUndo() {
     if (!state.lastOp) return;
-    
-    // 復元
     state.mySelectionIds = [...state.lastOp.list];
     this.saveUserState();
     this.undoToast.classList.remove('show');
-    
-    // 画面更新
     this.switchTab('all');
     alert("元に戻しました");
   },
@@ -1062,11 +1183,9 @@ const app = {
       else if (e.key === "0") { state.zoom = 1.0; this.updateZoomStyle(); this.saveUserState(); e.preventDefault(); }
     });
     
-    const showDetail = (el) => {
-      el.classList.add("pressed");
-      setTimeout(()=> el.classList.remove("pressed"), 200);
-      const horseId = el.dataset.horseId;
-      if (horseId) window.open(`https://db.netkeiba.com/horse/${horseId}`, '_blank'); 
+    // ★ V41: ダブルタップで詳細を開く
+    const triggerShowDetail = (el) => {
+      app.showDetail(el);
     };
 
     const startDrag = (el, x, y) => {
@@ -1208,7 +1327,7 @@ const app = {
             cell.classList.remove("pressed");
             const now = Date.now();
             if (now - lastTapTime < CONFIG.doubleTapDelay) {
-                showDetail(cell);
+                triggerShowDetail(cell); // ★ダブルタップで詳細を開く
                 lastTapTime = 0;
             } else {
                 lastTapTime = now;
