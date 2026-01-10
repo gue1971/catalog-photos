@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Horse Board (V39: Neon Pulse)</title>
+<title>Horse Board (V40: Safety & Undo)</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
   :root {
@@ -194,7 +194,7 @@
   .mini-check.checked { background: #666; color: #fff; }
   .mini-check i { pointer-events: none; }
 
-  /* ★ V39: 振動なし・ネオン＆フラッシュ強調 */
+  /* V39: 振動なし・ネオン＆フラッシュ強調 */
   @keyframes neon-pulse {
     0%, 100% {
       transform: scale(1.0);
@@ -204,13 +204,9 @@
       z-index: 1;
     }
     50% {
-      /* 少し拡大して主張 */
       transform: scale(1.1);
-      /* ボーダーを白く */
       border-color: #fff;
-      /* 背景を少し明るく（フラッシュ） */
       background-color: #443300;
-      /* 強烈なネオン発光 */
       box-shadow: 0 0 50px rgba(255, 215, 0, 0.9), inset 0 0 30px rgba(255, 215, 0, 0.4);
       z-index: 1000;
     }
@@ -303,11 +299,28 @@
   }
   .search-item:active { background: #2a2a2a; }
   
-  .item-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+  /* リスト項目のレイアウト */
+  .item-left { 
+    display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; 
+    /* V40: 全体のクリック反応を無効化 */
+    pointer-events: none;
+  }
+  
   .item-check { 
     width: 20px; height: 20px; border-radius: 4px; border: 2px solid #555;
     display: flex; align-items: center; justify-content: center; flex-shrink: 0; 
+    
+    /* V40: チェックボックスのみクリック有効化＆当たり判定拡大 */
+    pointer-events: auto;
+    position: relative;
+    cursor: pointer;
   }
+  /* 当たり判定を透明な擬似要素で広げる */
+  .item-check::before {
+    content: ""; position: absolute;
+    top: -15px; left: -15px; right: -15px; bottom: -15px;
+  }
+
   .item-check.checked { background: var(--accent); border-color: var(--accent); color: #fff; }
   .item-check.checked::after { content: "✔"; font-size: 12px; }
   
@@ -319,7 +332,10 @@
     padding: 6px 12px; background: #333; border-radius: 4px;
     font-size: 11px; color: #aaa; border: 1px solid #444;
     flex-shrink: 0; margin-left: 8px;
+    /* ジャンプボタンはクリック有効 */
+    pointer-events: auto;
   }
+
   /* ジャンプ専用タブでのアイテム */
   .jump-only-item { padding: 14px 16px; font-size: 14px; color: #eee; border-bottom: 1px solid #333; cursor: pointer; }
   .jump-only-item:active { background: var(--accent); color: #fff; }
@@ -351,6 +367,27 @@
   }
   
   #fileInput { display: none; }
+
+  /* V40: Undo Toast */
+  #undoToast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(100px);
+    background: #333; border: 1px solid #444; color: #fff;
+    padding: 12px 20px; border-radius: 24px;
+    display: flex; align-items: center; gap: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 30000;
+    pointer-events: none; opacity: 0;
+  }
+  #undoToast.show {
+    transform: translateX(-50%) translateY(0);
+    pointer-events: auto; opacity: 1;
+  }
+  #undoBtn {
+    background: var(--accent); color: #fff; border: none;
+    padding: 6px 12px; border-radius: 12px; font-size: 12px; font-weight: bold;
+    cursor: pointer;
+  }
 </style>
 
 </head>
@@ -361,6 +398,11 @@
 </div>
 
 <div id="toolbar" class="toolbar"></div>
+
+<div id="undoToast">
+  <span>変更しました</span>
+  <button id="undoBtn" onclick="app.execUndo()">元に戻す</button>
+</div>
 
 <div id="searchModal" class="modal-overlay">
   <div class="modal-window">
@@ -404,9 +446,9 @@
 
 <script>
 /**
- * Horse Board Logic (V39: Neon Pulse - No Vibrate)
- * - Removed translation shake.
- * - Enhanced glow/pulse for easier visibility.
+ * Horse Board Logic (V40: Safety & Undo)
+ * - Click target on All List limited to checkbox (prevent accidental unchecks).
+ * - Added 'Undo' toast to restore accidentally removed items to their original position.
  */
 
 const CONFIG = {
@@ -431,7 +473,10 @@ const state = {
   renderItems: [],
   activeTab: 'sire',
   listFilter: 'all', 
-  listSort: 'id'     
+  listSort: 'id',
+  // V40: Undo用
+  lastOp: null, 
+  undoTimer: null
 };
 
 const KANA_MAP = {
@@ -456,6 +501,7 @@ const app = {
       this.viewport = document.getElementById("viewport");
       this.toolbar = document.getElementById("toolbar");
       this.zoomDisp = document.getElementById("zoomDisp");
+      this.undoToast = document.getElementById("undoToast");
       
       await this.loadMasterData();
       this.loadUserState();
@@ -836,8 +882,7 @@ const app = {
       const li = document.createElement('li');
       li.className = 'search-item';
       li.innerHTML = `
-        <div class="item-left" onclick="app.toggleSelectionAllTab('${h.id}')">
-          <div class="item-check ${isChecked ? 'checked' : ''}" id="chk_all_${h.id}"></div>
+        <div class="item-left"> <div class="item-check ${isChecked ? 'checked' : ''}" id="chk_all_${h.id}" onclick="app.toggleSelectionAllTab('${h.id}')"></div>
           <div class="item-info">
             <div class="item-name">${h.name}</div>
             <div class="item-sub">${h.sire}</div>
@@ -858,7 +903,14 @@ const app = {
     container.appendChild(ul);
   },
 
+  // V40: Undo機能付きトグル
   toggleSelectionAllTab(id) {
+    // 直前の状態を保存 (ディープコピー)
+    state.lastOp = {
+      list: [...state.mySelectionIds],
+      time: Date.now()
+    };
+    
     const idx = state.mySelectionIds.findIndex(sid => String(sid) === String(id));
     const el = document.getElementById(`chk_all_${id}`);
     
@@ -870,6 +922,28 @@ const app = {
       if(el) el.classList.add('checked');
     }
     this.saveUserState();
+    this.showUndoToast();
+  },
+  
+  showUndoToast() {
+    this.undoToast.classList.add('show');
+    if (state.undoTimer) clearTimeout(state.undoTimer);
+    state.undoTimer = setTimeout(() => {
+      this.undoToast.classList.remove('show');
+    }, 4000); // 4秒後に消える
+  },
+  
+  execUndo() {
+    if (!state.lastOp) return;
+    
+    // 復元
+    state.mySelectionIds = [...state.lastOp.list];
+    this.saveUserState();
+    this.undoToast.classList.remove('show');
+    
+    // 画面更新
+    this.switchTab('all');
+    alert("元に戻しました");
   },
   
   toggleSelection(id) {
@@ -893,7 +967,6 @@ const app = {
       this.updateRenderItems();
       this.render();
     } else {
-      // 既にいてもボードを最新化してジャンプ
       this.updateRenderItems();
       this.render();
     }
