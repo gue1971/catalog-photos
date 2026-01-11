@@ -3,7 +3,7 @@
   "short_name": "募集時写真",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
+  "display": "fullscreen",
   "theme_color": "#111111",
   "background_color": "#111111",
   "icons": [
