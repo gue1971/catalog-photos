@@ -816,7 +816,7 @@
       "price": "1,400"
     },
     "link_movie": "https://www.youtube.com/watch?v=Yey0dRIlFUQ",
-    "link_pdf": "190008_20200731.pdf"
+    "link_pdf": "https://www.win-rc.co.jp/tmpfile/catalogue/20190008_20200731.pdf"
   },
   {
     "id": "2018110007",
@@ -836,8 +836,8 @@
       "club": "サンデー",
       "price": "5,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.sundaytc.co.jp/movie/93144.mp4",
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/93144.pdf"
   },
   {
     "id": "2018105448",
@@ -857,8 +857,8 @@
       "club": "G1",
       "price": "6,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.g1tc.co.jp/movie/18032.mp4",
+    "link_pdf": "https://www.g1tc.co.jp/catalog/pdf/18032.pdf"
   },
   {
     "id": "2018105355",
@@ -878,8 +878,8 @@
       "club": "サンデー",
       "price": "2,600"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.sundaytc.co.jp/movie/93135.mp4",
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/93135.pdf"
   },
   {
     "id": "2018105269",
@@ -899,8 +899,8 @@
       "club": "キャロット",
       "price": "1,800"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream1.carrotclub.net/catalog/2019/cc2019-horse1939.mp4",
+    "link_pdf": "https://drive.google.com/file/d/1zJQk62Kml8zLwLujpGbeY0PaBwEINSp1/view"
   },
   {
     "id": "2018105204",
@@ -920,8 +920,8 @@
       "club": "シルク",
       "price": "3,200"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://www.youtube.com/watch?v=8rrOFDJdEc4",
+    "link_pdf": "https://www.silkhorseclub.jp/hspdf/2019/2018054.pdf"
   },
   {
     "id": "2018105165",
@@ -941,8 +941,8 @@
       "club": "サンデー",
       "price": "12,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.sundaytc.co.jp/movie/93147.mp4",
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/93147.pdf"
   },
   {
     "id": "2018105081",
@@ -962,8 +962,8 @@
       "club": "サンデー",
       "price": "7,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.sundaytc.co.jp/movie/93172.mp4",
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/93172.pdf"
   },
   {
     "id": "2018105027",
@@ -983,8 +983,8 @@
       "club": "キャロット",
       "price": "2,800"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream1.carrotclub.net/catalog/2019/cc2019-horse1915.mp4",
+    "link_pdf": "https://drive.google.com/file/d/1Z1PGgb8xEdoXCWtxF3wrKm99J-aY2MEZ/view"
   },
   {
     "id": "2018104942",
@@ -1004,7 +1004,7 @@
       "club": "キャロット",
       "price": "8,000"
     },
-    "link_movie": "",
+    "link_movie": "https://stream1.carrotclub.net/catalog/2019/cc2019-horse1943.mp4",
     "link_pdf": ""
   },
   {
@@ -1025,8 +1025,8 @@
       "club": "サンデー",
       "price": "12,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.sundaytc.co.jp/movie/93182.mp4",
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/93182.pdf"
   },
   {
     "id": "2018104541",
@@ -1046,8 +1046,8 @@
       "club": "社台",
       "price": "8,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.shadaitc.co.jp/movie/93042.mp4",
+    "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/93042.pdf"
   },
   {
     "id": "2018102167",
@@ -1067,8 +1067,8 @@
       "club": "ラフィアン",
       "price": "1,500"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://youtu.be/pMcUpIPtz9A",
+    "link_pdf": "https://www.ruffian.co.jp/tmpfile/catalogue/118144_20190612.pdf"
   },
   {
     "id": "2017106711",
