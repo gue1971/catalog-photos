@@ -1424,8 +1424,8 @@
       "club": "社台",
       "price": "8,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.shadaitc.co.jp/movie/91041.mp4",
+    "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/91041.pdf"
   },
   {
     "id": "2016104946",
@@ -1445,8 +1445,8 @@
       "club": "社台",
       "price": "4,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.shadaitc.co.jp/movie/91053.mp4",
+    "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/91053.pdf"
   },
   {
     "id": "2016104750",
@@ -1466,8 +1466,8 @@
       "club": "サンデー",
       "price": "1,400"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.sundaytc.co.jp/movie/91192.mp4",
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/91192.pdf"
   },
   {
     "id": "2016104648",
@@ -1508,8 +1508,8 @@
       "club": "サンデー",
       "price": "7,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.sundaytc.co.jp/movie/91104.mp4",
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/91104.pdf"
   },
   {
     "id": "2016104505",
@@ -1529,8 +1529,8 @@
       "club": "キャロット",
       "price": "14,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream1.carrotclub.net/catalog/2017/dvd-2017-52.mp4",
+    "link_pdf": "https://drive.google.com/file/d/1Xg9TIsAioyGiDu2WiLOUTsZWBYjZZo3q/view"
   },
   {
     "id": "2016104458",
@@ -1550,8 +1550,8 @@
       "club": "キャロット",
       "price": "5,600"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream1.carrotclub.net/catalog/2017/dvd-2017-81.mp4",
+    "link_pdf": "https://drive.google.com/file/d/1rj6X6BKOFJMNGFQxq2D1mE0u0ktPnnUX/view"
   },
   {
     "id": "2016104426",
@@ -1571,8 +1571,8 @@
       "club": "キャロット",
       "price": "3,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream1.carrotclub.net/catalog/2017/dvd-2017-51.mp4",
+    "link_pdf": "https://drive.google.com/file/d/1uTD9lb9wyad5eyhG9ChnzK6QNCLgMdGI/view"
   },
   {
     "id": "2016100752",
@@ -1593,7 +1593,7 @@
       "price": "2,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.ruffian.co.jp/tmpfile/catalogue/116126_20170614.pdf"
   },
   {
     "id": "2015105075",
