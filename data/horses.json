@@ -1613,8 +1613,8 @@
       "club": "サンデー",
       "price": "10,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.sundaytc.co.jp/movie/90101.mp4",
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/90101.pdf"
   },
   {
     "id": "2015105064",
@@ -1634,8 +1634,8 @@
       "club": "サンデー",
       "price": "4,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.sundaytc.co.jp/movie/90120.mp4",
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/90120.pdf"
   },
   {
     "id": "2015105046",
@@ -1655,8 +1655,8 @@
       "club": "サンデー",
       "price": "3,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.sundaytc.co.jp/movie/90167.mp4",
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/90167.pdf"
   },
   {
     "id": "2015105036",
@@ -1676,8 +1676,8 @@
       "club": "シルク",
       "price": "5,500"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://youtu.be/tnP251CrPFE?si=OuBCctbrTxdYLbAf",
+    "link_pdf": "https://www.silkhorseclub.jp/hspdf/2016/2015003.pdf"
   },
   {
     "id": "2015104961",
@@ -1697,8 +1697,8 @@
       "club": "シルク",
       "price": "3,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://youtu.be/b8VQVEpmcXg?si=W7SeuVkyz9doCwLN",
+    "link_pdf": "https://www.silkhorseclub.jp/hspdf/2016/2015018.pdf"
   },
   {
     "id": "2015104943",
@@ -1718,8 +1718,8 @@
       "club": "サンデー",
       "price": "1,800"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.sundaytc.co.jp/movie/90175.mp4",
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/90175.pdf"
   },
   {
     "id": "2015104882",
@@ -1739,8 +1739,8 @@
       "club": "シルク",
       "price": "2,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://youtu.be/VDE0G-VU6Zo?si=dBxtBAScaqUnW2JK",
+    "link_pdf": "https://www.silkhorseclub.jp/hspdf/2016/2015019.pdf"
   },
   {
     "id": "2015104793",
@@ -1760,8 +1760,8 @@
       "club": "シルク",
       "price": "6,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://youtu.be/Qau5BqDuZS4?si=R4oNe3AXNJrkyX_W",
+    "link_pdf": "https://www.silkhorseclub.jp/hspdf/2016/2015035.pdf"
   },
   {
     "id": "2015104773",
@@ -1782,7 +1782,7 @@
       "price": "2,800"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://stream1.carrotclub.net/catalog/2016/66-cc2016.mp4"
   },
   {
     "id": "2015104688",
@@ -1802,8 +1802,8 @@
       "club": "シルク",
       "price": "3,500"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://youtu.be/oiDHkCc_r5I?si=MfslXoKosIzRFFV8",
+    "link_pdf": "https://www.silkhorseclub.jp/hspdf/2016/2015044.pdf"
   },
   {
     "id": "2015104417",
@@ -1844,8 +1844,8 @@
       "club": "社台",
       "price": "5,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.shadaitc.co.jp/movie/90061.mp4",
+    "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/90061.pdf"
   },
   {
     "id": "2015104189",
@@ -1865,8 +1865,8 @@
       "club": "G1",
       "price": "2,400"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.g1tc.co.jp/movie/15019.mp4",
+    "link_pdf": "https://www.g1tc.co.jp/catalog/pdf/15019.pdf"
   },
   {
     "id": "2015104107",
@@ -1886,8 +1886,8 @@
       "club": "サンデー",
       "price": "2,600"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.sundaytc.co.jp/movie/90156.mp4",
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/90156.pdf"
   },
   {
     "id": "2015104063",
@@ -1907,8 +1907,8 @@
       "club": "シルク",
       "price": "7,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://youtu.be/_bPHPCzHzwo?si=95itT8_2WvHbjnjx",
+    "link_pdf": "https://www.silkhorseclub.jp/hspdf/2016/2015002.pdf"
   },
   {
     "id": "2015103057",
@@ -1928,8 +1928,8 @@
       "club": "シルク",
       "price": "4,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://youtu.be/-PI3TWaH1o8?si=-iLuLps6QUbkESQ4",
+    "link_pdf": "https://www.silkhorseclub.jp/hspdf/2016/2015053.pdf"
   },
   {
     "id": "2015102440",
