@@ -95,7 +95,7 @@
   /* --- ボードレイアウト --- */
   .board {
     display: grid;
-    grid-template-columns: repeat(12, 1fr);
+    grid-template-columns: repeat(9, 1fr);
     gap: calc(var(--gap) * var(--zoom));
     width: calc(100% * var(--zoom));
     padding: 8px;
@@ -528,7 +528,7 @@
  */
 
 const CONFIG = {
-  columnCount: 12, 
+  columnCount: 9, 
   minZoom: 1.0,
   maxZoom: 12.0, 
   detailThreshold: 2.0, 
