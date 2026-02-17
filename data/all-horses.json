@@ -2012,8 +2012,8 @@
       "club": "サンデー",
       "price": "10,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.sundaytc.co.jp/movie/89143_1506.mp4",
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/89143.pdf"
   },
   {
     "id": "2014106010",
@@ -2033,8 +2033,8 @@
       "club": "サンデー",
       "price": "3,600"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.sundaytc.co.jp/movie/89166_1506.mp4",
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/89166.pdf"
   },
   {
     "id": "2014105785",
@@ -2055,7 +2055,7 @@
       "price": "1,400"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/89127.pdf"
   },
   {
     "id": "2014105535",
@@ -2075,8 +2075,8 @@
       "club": "社台",
       "price": "6,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.shadaitc.co.jp/movie/89042_1506.mp4",
+    "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/89042.pdf"
   },
   {
     "id": "2014105517",
@@ -2097,7 +2097,7 @@
       "price": "6,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/89057.pdf"
   },
   {
     "id": "2014105304",
@@ -2117,8 +2117,8 @@
       "club": "G1",
       "price": "4,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.g1tc.co.jp/movie/14026_1506.mp4",
+    "link_pdf": "https://www.g1tc.co.jp/catalog/pdf/14036.pdf"
   },
   {
     "id": "2014105258",
@@ -2139,7 +2139,7 @@
       "price": "3,200"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.g1tc.co.jp/catalog/pdf/14037.pdf"
   },
   {
     "id": "2014104386",
@@ -2251,7 +2251,7 @@
     "name": "シルバーステート",
     "sire": "ディープインパクト",
     "detail": {
-      "募集馬名": "シルヴァースカヤ",
+      "募集馬名": "シルヴァースカヤの13",
       "dam_sire": "Silver Hawk",
       "sex": "牡",
       "birthday": "5/02",
@@ -2264,8 +2264,8 @@
       "club": "G1",
       "price": "10,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.g1tc.co.jp/movie/G12014_25.mp4",
+    "link_pdf": "https://www.g1tc.co.jp/catalog/pdf/13025.pdf"
   },
   {
     "id": "2013105840",
@@ -2286,7 +2286,7 @@
       "price": "2,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/88108.pdf"
   },
   {
     "id": "2013105318",
@@ -2306,8 +2306,8 @@
       "club": "G1",
       "price": "4,400"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://stream.g1tc.co.jp/movie/G12014_26.mp4",
+    "link_pdf": "https://www.g1tc.co.jp/catalog/pdf/13026.pdf"
   },
   {
     "id": "2012104889",
@@ -2328,7 +2328,7 @@
       "price": "8,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/87142.pdf"
   },
   {
     "id": "2012104669",
@@ -2391,7 +2391,7 @@
       "price": "10,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/87104.pdf"
   },
   {
     "id": "2012104508",
@@ -2433,7 +2433,7 @@
       "price": "3,200"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/87167.pdf"
   },
   {
     "id": "2011104416",
@@ -2601,7 +2601,7 @@
       "price": "2,400"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/87079.pdf"
   },
   {
     "id": "2010104916",
@@ -2643,7 +2643,7 @@
       "price": "3,600"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/85110.pdf"
   },
   {
     "id": "2010104155",
@@ -2706,7 +2706,7 @@
       "price": "2,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/84132.pdf"
   },
   {
     "id": "2009106525",
@@ -2727,7 +2727,7 @@
       "price": "5,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/84038.pdf"
   },
   {
     "id": "2009106353",
@@ -2748,7 +2748,7 @@
       "price": "10,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/84137.pdf"
   },
   {
     "id": "2009106321",
@@ -2790,7 +2790,7 @@
       "price": "7,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/84144.pdf"
   },
   {
     "id": "2009106253",
@@ -2811,7 +2811,7 @@
       "price": "3,400"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/84141.pdf"
   },
   {
     "id": "2009105084",
@@ -2832,7 +2832,7 @@
       "price": "4,400"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/84139.pdf"
   },
   {
     "id": "2009103532",
@@ -2895,7 +2895,7 @@
       "price": "3,600"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/83018.pdf"
   },
   {
     "id": "2008103244",
@@ -2979,7 +2979,7 @@
       "price": "2,400"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/83023.pdf"
   },
   {
     "id": "2008103009",
@@ -3000,7 +3000,7 @@
       "price": "4,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/83004.pdf"
   },
   {
     "id": "2008103004",
@@ -3021,7 +3021,7 @@
       "price": "4,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/83078.pdf"
   },
   {
     "id": "2008102636",
@@ -3042,7 +3042,7 @@
       "price": "6,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/83170.pdf"
   },
   {
     "id": "2007104877",
@@ -3084,7 +3084,7 @@
       "price": "8,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/82149.pdf"
   },
   {
     "id": "2007103389",
@@ -3147,7 +3147,7 @@
       "price": "18,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/82150.pdf"
   },
   {
     "id": "2006105511",
@@ -3189,7 +3189,7 @@
       "price": "4,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/81144.pdf"
   },
   {
     "id": "2006103308",
@@ -3210,7 +3210,7 @@
       "price": "6,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/81124.pdf"
   },
   {
     "id": "2006103254",
@@ -3315,7 +3315,7 @@
       "price": "5,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/80068.pdf"
   },
   {
     "id": "2005102180",
@@ -3336,7 +3336,7 @@
       "price": "1,600"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/80058.pdf"
   },
   {
     "id": "2005102077",
@@ -3357,7 +3357,7 @@
       "price": "2,400"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/80032.pdf"
   },
   {
     "id": "2004103021",
@@ -3378,7 +3378,7 @@
       "price": "2,400"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/79049.pdf"
   },
   {
     "id": "2004102859",
@@ -3399,7 +3399,7 @@
       "price": "2,400"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/79004.pdf"
   },
   {
     "id": "2004102753",
@@ -3420,7 +3420,7 @@
       "price": "2,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/79089.pdf"
   },
   {
     "id": "2004100933",
@@ -3504,7 +3504,7 @@
       "price": "3,200"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/78030.pdf"
   },
   {
     "id": "2003100738",
@@ -3546,7 +3546,7 @@
       "price": "6,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/77089.pdf"
   },
   {
     "id": "2002100877",
@@ -3567,7 +3567,7 @@
       "price": "2,400"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/77082.pdf"
   },
   {
     "id": "2002100844",
@@ -3609,7 +3609,7 @@
       "price": "2,600"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/77045.pdf"
   },
   {
     "id": "2002100600",
@@ -3630,7 +3630,7 @@
       "price": "3,400"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/77066.pdf"
   },
   {
     "id": "2002100476",
@@ -3651,7 +3651,7 @@
       "price": "6,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/77053.pdf"
   },
   {
     "id": "2001103389",
@@ -3672,7 +3672,7 @@
       "price": "2,400"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/77028.pdf"
   },
   {
     "id": "2001103189",
@@ -3693,7 +3693,7 @@
       "price": "10,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/76077.pdf"
   },
   {
     "id": "2001103133",
@@ -3714,7 +3714,7 @@
       "price": "6,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/76044.pdf"
   },
   {
     "id": "2001103038",
@@ -3735,7 +3735,7 @@
       "price": "6,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/76029.pdf"
   },
   {
     "id": "2001103018",
@@ -3777,6 +3777,6 @@
       "price": "7,000"
     },
     "link_movie": "",
-    "link_pdf": ""
+    "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/75054.pdf"
   }
 ]

@@ -4,7 +4,7 @@ import io
 
 # ファイルパス（適宜変更してください）
 CSV_FILE = '../horses.csv'
-JSON_FILE = '../data/horses.json'
+JSON_FILE = '../data/all-horses.json'
 
 def convert():
     horses = []

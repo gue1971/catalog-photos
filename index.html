@@ -649,7 +649,7 @@
         ズーム: <span id="zoomDisp">100%</span>
       </div>
       <div style="font-size:11px; color:#888; margin-bottom:4px;">
-        ※ 全馬データ（horses.json）は変更されません
+        ※ 全馬データ（all-horses.json）は変更されません
       </div>
       <button class="menu-btn" onclick="app.exportData()">
         <i class="fa-solid fa-upload"></i> 表示状態をエクスポート (JSON)
@@ -658,7 +658,7 @@
         <i class="fa-solid fa-download"></i> 表示状態をインポート
       </button>
       <button class="menu-btn" onclick="app.resetData()" style="color:#f55; border-color:#533;">
-        <i class="fa-solid fa-trash"></i> 表示状態をリセット
+        <i class="fa-solid fa-table-cells-large"></i> 登録馬を全て表示
       </button>
     </div>
   </div>
@@ -747,7 +747,7 @@ const app = {
       this.undoToast = document.getElementById("undoToast");
       
       await this.loadMasterData();
-      this.loadUserState();
+      await this.loadUserState();
       
       this.updateRenderItems();
       this.updateUIState();
@@ -761,12 +761,25 @@ const app = {
 
   async loadMasterData() {
     try {
-      const res = await fetch(`data/horses.json?t=${Date.now()}`);
+      const res = await fetch(`data/all-horses.json?t=${Date.now()}`);
       if (res.ok) state.masterData = await res.json();
     } catch (e) { state.masterData = []; }
   },
 
-  loadUserState() {
+  async loadUserState() {
+    let selectedFileState = null;
+    try {
+      const res = await fetch(`data/selected.json?t=${Date.now()}`);
+      if (res.ok) selectedFileState = await res.json();
+    } catch (e) {}
+
+    if (selectedFileState && Array.isArray(selectedFileState.mySelectionIds)) {
+      state.mySelectionIds = selectedFileState.mySelectionIds;
+      state.zoom = selectedFileState.zoom || 1.0;
+      this.saveUserState();
+      return;
+    }
+
     const raw = localStorage.getItem(CONFIG.storageKey);
     if (raw) {
       try {
@@ -1591,7 +1604,10 @@ const app = {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `horse_board_db.json`;
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}-${pad(now.getMinutes())}`;
+    a.download = `selected_${stamp}.json`;
     a.click();
     URL.revokeObjectURL(url);
   },
@@ -1622,7 +1638,7 @@ const app = {
   },
   
   resetData() {
-    if(!confirm("マイ選抜リストをリセットして全馬表示に戻しますか？")) return;
+    if(!confirm("登録状態をクリアして全馬を表示しますか？")) return;
     localStorage.removeItem(CONFIG.storageKey);
     location.reload();
   },
