@@ -38,8 +38,9 @@
     height: 54px;
     background: rgba(0,0,0,0.9);
     backdrop-filter: blur(10px);
-    display: flex; align-items: center; justify-content: center;
-    gap: 80px; 
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: center;
     padding: 0 16px; z-index: 10000;
     border-top: 1px solid rgba(255,255,255,0.15);
     transition: background 0.3s;
@@ -53,33 +54,58 @@
   }
   .tool-btn i { font-size: 24px; margin-bottom: 0; }
   .tool-btn:active { transform: scale(0.90); color: #fff; }
+  .tool-btn.search { grid-column: 2; justify-self: center; }
+  .tool-btn.settings { grid-column: 3; justify-self: end; }
 
   /* フィルターモード用ツールバー */
   .toolbar.mode-filter {
-    background: #002a55; 
-    justify-content: space-between; 
-    gap: 8px; 
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: center;
+    background: rgba(0,0,0,0.9);
+    backdrop-filter: blur(10px);
+    gap: 0;
+  }
+  .toolbar.mode-filter .tool-btn {
+    color: #888;
+    justify-self: center;
+  }
+  .toolbar.mode-filter .tool-btn:active {
+    color: #fff;
+  }
+  .mode-filter-home { justify-self: start; }
+  .mode-filter-search { justify-self: center; }
+  .mode-filter-label {
+    justify-self: end;
+    color: #aaa;
+    font-size: 13px;
+    max-width: 34vw;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: right;
+    padding-right: 8px;
   }
   
   .filter-status {
-    color: #fff; font-size: 14px; font-weight: bold;
+    color: #eee; font-size: 14px; font-weight: 600;
     display: flex; flex-direction: column; align-items: center;
     line-height: 1.2;
     flex: 1; 
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .filter-status span { font-size: 10px; opacity: 0.8; font-weight: normal; }
+  .filter-status span { font-size: 10px; opacity: 0.75; font-weight: 500; }
   
   .filter-btn {
-    background: rgba(255,255,255,0.15); color: #fff;
-    border: 1px solid rgba(255,255,255,0.3); border-radius: 20px;
+    background: #2b2b2b; color: #ddd;
+    border: 1px solid #444; border-radius: 20px;
     padding: 8px 16px; font-size: 13px; font-weight: bold;
     cursor: pointer; display: flex; align-items: center; gap: 6px;
     white-space: nowrap;
   }
-  .filter-btn:active { transform: scale(0.95); background: rgba(255,255,255,0.25); }
+  .filter-btn:active { transform: scale(0.95); background: #3a3a3a; }
   .filter-btn.primary {
-    background: #fff; color: #002a55; border: none;
+    background: #3a3a3a; color: #eee; border: 1px solid #4a4a4a;
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
   }
 
@@ -314,6 +340,11 @@
     flex-shrink: 0; margin-left: 8px;
     pointer-events: auto;
   }
+  .item-jump.disabled {
+    opacity: 0.35;
+    filter: grayscale(100%);
+    pointer-events: none;
+  }
 
   .jump-only-item { padding: 14px 16px; font-size: 14px; color: #eee; border-bottom: 1px solid #333; cursor: pointer; }
   .jump-only-item:active { background: var(--accent); color: #fff; }
@@ -328,6 +359,7 @@
   .menu-btn i { width: 20px; text-align: center; color: #888; }
 
   .cat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 16px; }
+  .cat-grid.single-col { grid-template-columns: 1fr; }
   .cat-btn {
     background: #252525; border: 1px solid #333; color: #ddd;
     padding: 12px; border-radius: 6px; text-align: center; font-size: 13px;
@@ -337,6 +369,48 @@
   .cat-btn:active { background: #444; }
   .cat-btn.disabled { opacity: 0.3; pointer-events: none; }
   .cat-count { background: #444; padding: 2px 6px; border-radius: 10px; font-size: 11px; color: #ccc; }
+
+  .sire-grid { padding: 16px; }
+  .sire-cat-btn { text-align: left; gap: 8px; }
+  .sire-item-main {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    cursor: pointer;
+  }
+  .sire-head {
+    width: 14px;
+    flex-shrink: 0;
+    color: #9a9a9a;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+  }
+  .sire-head.empty { opacity: 0; }
+  .sire-filter-btn {
+    background: #333;
+    border: 1px solid #4a4a4a;
+    color: #ddd;
+    border-radius: 4px;
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-size: 13px;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .sire-filter-btn:active { background: #444; }
+  .sire-name {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   
   .back-btn {
     display: flex; align-items: center; gap: 8px;
@@ -535,7 +609,6 @@ const CONFIG = {
   storageKey: "horse_board_v23_db",
   
   longPressDelay: 300, 
-  doubleTapDelay: 350,
   moveThreshold: 10
 };
 
@@ -548,6 +621,8 @@ const state = {
   zoom: 1.0,
   renderItems: [],
   activeTab: 'sire',
+  kanaNav: { level: 0, rowKey: null, char: null },
+  sireNav: { level: 0, sire: null },
   listFilter: 'all', 
   listSort: 'id',
   lastOp: null, 
@@ -555,16 +630,16 @@ const state = {
 };
 
 const KANA_MAP = {
-  "ア行": ["ア","イ","ウ","エ","オ","ァ","ィ","ゥ","ェ","ォ","ヴ"],
-  "カ行": ["カ","キ","ク","ケ","コ","ガ","ギ","グ","ゲ","ゴ","ヵ","ヶ"],
-  "サ行": ["サ","シ","ス","セ","ソ","ザ","ジ","ズ","ゼ","ゾ"],
-  "タ行": ["タ","チ","ツ","テ","ト","ダ","ヂ","ヅ","デ","ド","ッ"],
+  "ア行": ["ア","イ","ウ","エ","オ"],
+  "カ行": ["カ","キ","ク","ケ","コ"],
+  "サ行": ["サ","シ","ス","セ","ソ"],
+  "タ行": ["タ","チ","ツ","テ","ト"],
   "ナ行": ["ナ","ニ","ヌ","ネ","ノ"],
-  "ハ行": ["ハ","ヒ","フ","ヘ","ホ","バ","ビ","ブ","ベ","ボ","パ","ピ","プ","ペ","ポ"],
+  "ハ行": ["ハ","ヒ","フ","ヘ","ホ"],
   "マ行": ["マ","ミ","ム","メ","モ"],
-  "ヤ行": ["ヤ","ユ","ヨ","ャ","ュ","ョ"],
+  "ヤ行": ["ヤ","ユ","ヨ"],
   "ラ行": ["ラ","リ","ル","レ","ロ"],
-  "ワ行": ["ワ","ヲ","ン","ー"]
+  "ワ行": ["ワ","ヲ","ン"]
 };
 
 // クラブ名正式名称
@@ -833,26 +908,23 @@ const app = {
     if (state.viewMode === 'my') {
       this.toolbar.classList.remove('mode-filter');
       this.toolbar.innerHTML = `
-        <button class="tool-btn" onclick="app.openSearchModal()">
+        <button class="tool-btn search" onclick="app.openSearchModal()">
           <i class="fa-solid fa-magnifying-glass"></i>
         </button>
-        <button class="tool-btn" onclick="app.openSettingsModal()">
+        <button class="tool-btn settings" onclick="app.openSettingsModal()">
           <i class="fa-solid fa-gear"></i>
         </button>
       `;
     } else {
       this.toolbar.classList.add('mode-filter');
       this.toolbar.innerHTML = `
-        <button class="filter-btn" onclick="app.openSearchModal()">
-            <i class="fa-solid fa-magnifying-glass"></i> 条件変更
+        <button class="tool-btn mode-filter-home" onclick="app.resetView()">
+          <i class="fa-solid fa-house"></i>
         </button>
-        <div class="filter-status">
-            <span>表示中:</span>
-            ${state.filterValue} (${state.renderItems.length}頭)
-        </div>
-        <button class="filter-btn primary" onclick="app.resetView()">
-            <i class="fa-solid fa-arrow-left"></i> マイ選抜へ
+        <button class="tool-btn mode-filter-search" onclick="app.openSearchModal()">
+          <i class="fa-solid fa-magnifying-glass"></i>
         </button>
+        <div class="mode-filter-label">${state.filterType === 'sire' ? state.filterValue : (state.filterValue || '')}</div>
       `;
     }
   },
@@ -870,6 +942,38 @@ const app = {
       this.updateRenderItems();
       this.render();
     }
+  },
+
+  handleSearchModalBackdropTap() {
+    if (state.activeTab === 'sire') {
+      if (state.sireNav && state.sireNav.level >= 1) {
+        const container = document.getElementById('searchContent');
+        if (container) this.renderSireTab(container);
+        else this.closeModal('searchModal');
+        return;
+      }
+      this.closeModal('searchModal');
+      return;
+    }
+
+    if (state.activeTab !== 'kana' || !state.kanaNav) {
+      this.closeModal('searchModal');
+      return;
+    }
+    const container = document.getElementById('searchContent');
+    if (!container) {
+      this.closeModal('searchModal');
+      return;
+    }
+    if (state.kanaNav.level >= 2 && state.kanaNav.rowKey) {
+      this.renderKanaSub(container, state.kanaNav.rowKey);
+      return;
+    }
+    if (state.kanaNav.level === 1) {
+      this.renderKanaRows(container);
+      return;
+    }
+    this.closeModal('searchModal');
   },
   
   switchTab(tab) {
@@ -895,6 +999,8 @@ const app = {
   },
 
   renderSireTab(container) {
+    state.sireNav = { level: 0, sire: null };
+    container.innerHTML = "";
     const stats = {};
     state.masterData.forEach(h => {
       const s = h.sire ? h.sire.trim() : "不明";
@@ -903,51 +1009,158 @@ const app = {
       if(state.mySelectionIds.includes(h.id)) stats[s].checked++;
     });
 
-    const sires = Object.keys(stats).sort();
+    const grouped = new Map();
+    const sires = Object.keys(stats).sort((a, b) => a.localeCompare(b, 'ja'));
+    sires.forEach((sire) => {
+      const head = this.getSireHeadLabel(sire);
+      if (!grouped.has(head)) grouped.set(head, []);
+      grouped.get(head).push(sire);
+    });
+
+    const orderedHeads = Array.from(grouped.keys()).sort((a, b) => this.compareSireHeadLabel(a, b));
+    const list = document.createElement('div');
+    list.className = 'cat-grid single-col sire-grid';
+    orderedHeads.forEach((head) => {
+      const entries = grouped.get(head);
+      entries.forEach((sire, idx) => {
+        const info = stats[sire];
+        const btn = document.createElement('div');
+        btn.className = 'cat-btn sire-cat-btn';
+
+        const main = document.createElement('div');
+        main.className = 'sire-item-main';
+        main.innerHTML = `
+          <span class="sire-head ${idx === 0 ? '' : 'empty'}">${head}</span>
+          <span class="sire-name">${sire}</span>
+          <span class="cat-count">${info.total}(${info.checked})</span>
+        `;
+        btn.appendChild(main);
+        btn.onclick = () => {
+          this.renderSireFinalList(container, sire);
+        };
+
+        const filterBtn = document.createElement('button');
+        filterBtn.className = 'sire-filter-btn';
+        filterBtn.title = '該当馬を全表示';
+        filterBtn.innerHTML = '<i class="fa-solid fa-list"></i>';
+        filterBtn.onclick = (e) => {
+          e.stopPropagation();
+          this.closeModal('searchModal');
+          this.applyFilter('sire', sire);
+        };
+        btn.appendChild(filterBtn);
+
+        list.appendChild(btn);
+      });
+    });
+    container.appendChild(list);
+  },
+
+  renderSireFinalList(container, sire) {
+    state.sireNav = { level: 1, sire };
+    container.innerHTML = "";
+    const backBtn = document.createElement('div');
+    backBtn.className = 'back-btn';
+    backBtn.innerHTML = '<i class="fa-solid fa-chevron-left"></i> 種牡馬一覧に戻る';
+    backBtn.onclick = () => { this.renderSireTab(container); };
+    container.appendChild(backBtn);
+
+    const targetHorses = state.masterData
+      .filter(h => (h.sire ? h.sire.trim() : "不明") === sire)
+      .sort((a,b) => a.name.localeCompare(b.name, 'ja'));
+
+    const ul = document.createElement('ul');
+    ul.className = 'search-list';
+    targetHorses.forEach(h => {
+      const isChecked = state.mySelectionIds.includes(h.id);
+      const li = document.createElement('li');
+      li.className = 'search-item';
+      li.innerHTML = `
+        <div class="item-left">
+          <div class="item-check ${isChecked ? 'checked' : ''}" id="chk_sire_${h.id}" onclick="app.toggleSelectionSireFinal('${h.id}', event)"></div>
+          <div class="item-info">
+            <div class="item-name">${h.name}</div>
+            <div class="item-sub">${h.sire || ''}</div>
+          </div>
+        </div>
+        <div class="item-jump ${isChecked ? '' : 'disabled'}" id="jmp_sire_${h.id}" onclick="app.jumpToHorse('${h.id}')">
+          <i class="fa-solid fa-location-arrow"></i>
+        </div>
+      `;
+      ul.appendChild(li);
+    });
+    if (targetHorses.length === 0) {
+      ul.innerHTML = '<div style="padding:20px; text-align:center; color:#666;">該当する馬がいません</div>';
+    }
+    container.appendChild(ul);
+  },
+
+  getSireHeadLabel(sireName) {
+    const raw = (sireName || '').trim();
+    if (!raw) return '他';
+    const first = this.normalizeKana(raw.charAt(0));
+    if (/[A-Za-z]/.test(first)) return 'A';
+    if (/[0-9]/.test(first)) return '#';
+    if (/[\u30A0-\u30FF]/.test(first)) return first;
+    return '他';
+  },
+
+  normalizeKana(ch) {
+    if (!ch) return '';
+    let out = ch;
+    const code = out.charCodeAt(0);
+    if (code >= 0x3041 && code <= 0x3096) out = String.fromCharCode(code + 0x60);
+    out = out.normalize('NFD').replace(/[\u3099\u309A]/g, '').normalize('NFC');
+    const smallMap = {
+      "ァ":"ア","ィ":"イ","ゥ":"ウ","ェ":"エ","ォ":"オ",
+      "ャ":"ヤ","ュ":"ユ","ョ":"ヨ","ッ":"ツ","ヮ":"ワ","ヵ":"カ","ヶ":"ケ"
+    };
+    return smallMap[out] || out;
+  },
+
+  getNameInitial(name) {
+    return this.normalizeKana((name || '').charAt(0));
+  },
+
+  compareSireHeadLabel(a, b) {
+    if (a === 'A' && b !== 'A') return -1;
+    if (a !== 'A' && b === 'A') return 1;
+    if (a === '#' && b !== '#') return 1;
+    if (a !== '#' && b === '#') return -1;
+    if (a === '他' && b !== '他') return 1;
+    if (a !== '他' && b === '他') return -1;
+    return a.localeCompare(b, 'ja');
+  },
+
+  countKana(chars) {
+    const charSet = new Set(chars.map((c) => this.normalizeKana(c)));
+    return state.masterData.filter(h => charSet.has(this.getNameInitial(h.name))).length;
+  },
+
+  renderKanaRows(container) {
+    state.kanaNav = { level: 0, rowKey: null, char: null };
+    container.innerHTML = "";
     const grid = document.createElement('div');
-    grid.className = 'cat-grid';
-    sires.forEach(sire => {
-      const info = stats[sire];
+    grid.className = 'cat-grid single-col';
+    
+    Object.keys(KANA_MAP).forEach(rowKey => {
+      const chars = KANA_MAP[rowKey];
+      const count = this.countKana(chars);
+      if (count === 0) return;
+      
       const btn = document.createElement('div');
       btn.className = 'cat-btn';
-      btn.innerHTML = `<span>${sire}</span> <span class="cat-count">${info.total} (${info.checked})</span>`;
+      btn.innerHTML = `<span>${rowKey}</span> <span class="cat-count">${count}</span>`;
       btn.onclick = () => {
-        this.closeModal('searchModal');
-        this.applyFilter('sire', sire);
+        this.renderKanaSub(container, rowKey);
       };
       grid.appendChild(btn);
     });
     container.appendChild(grid);
   },
 
-  countKana(chars) {
-    return state.masterData.filter(h => chars.includes(h.name.charAt(0))).length;
-  },
-  
-  renderKanaRows(container) {
-    container.innerHTML = "";
-    const grid = document.createElement('div');
-    grid.className = 'cat-grid';
-    
-    Object.keys(KANA_MAP).forEach(rowKey => {
-      const chars = KANA_MAP[rowKey];
-      const count = this.countKana(chars);
-      
-      const btn = document.createElement('div');
-      btn.className = `cat-btn ${count === 0 ? 'disabled' : ''}`;
-      btn.innerHTML = `<span>${rowKey}</span> <span class="cat-count">${count}</span>`;
-      
-      if (count > 0) {
-        btn.onclick = () => {
-            this.renderKanaSub(container, rowKey);
-        };
-      }
-      grid.appendChild(btn);
-    });
-    container.appendChild(grid);
-  },
-  
   renderKanaSub(container, rowKey) {
+    state.kanaNav = { level: 1, rowKey, char: null };
     container.innerHTML = "";
     const backBtn = document.createElement('div');
     backBtn.className = 'back-btn';
@@ -956,25 +1169,25 @@ const app = {
     container.appendChild(backBtn);
     
     const grid = document.createElement('div');
-    grid.className = 'cat-grid';
+    grid.className = 'cat-grid single-col';
     
     const chars = KANA_MAP[rowKey];
     chars.forEach(char => {
         const count = this.countKana([char]);
+        if (count === 0) return;
         const btn = document.createElement('div');
-        btn.className = `cat-btn ${count === 0 ? 'disabled' : ''}`;
+        btn.className = 'cat-btn';
         btn.innerHTML = `<span>${char}</span> <span class="cat-count">${count}</span>`;
-        if (count > 0) {
-            btn.onclick = () => {
-                this.renderKanaFinalList(container, char, rowKey);
-            };
-        }
+        btn.onclick = () => {
+          this.renderKanaFinalList(container, char, rowKey);
+        };
         grid.appendChild(btn);
     });
     container.appendChild(grid);
   },
 
   renderKanaFinalList(container, char, rowKey) {
+    state.kanaNav = { level: 2, rowKey, char };
     container.innerHTML = "";
     const backBtn = document.createElement('div');
     backBtn.className = 'back-btn';
@@ -983,7 +1196,7 @@ const app = {
     container.appendChild(backBtn);
 
     const targetHorses = state.masterData
-      .filter(h => h.name.charAt(0) === char)
+      .filter(h => this.getNameInitial(h.name) === this.normalizeKana(char))
       .sort((a,b) => a.name.localeCompare(b.name, 'ja'));
     
     const ul = document.createElement('ul');
@@ -992,16 +1205,19 @@ const app = {
     targetHorses.forEach(h => {
       const isChecked = state.mySelectionIds.includes(h.id);
       const li = document.createElement('li');
-      li.className = 'jump-only-item';
+      li.className = 'search-item';
       li.innerHTML = `
-        <span style="${isChecked ? 'color:var(--accent); font-weight:bold;' : ''}">
-          ${h.name} ${isChecked ? '✔' : ''}
-        </span>
-        <span class="jump-sub">${h.sire}</span>
+        <div class="item-left">
+          <div class="item-check ${isChecked ? 'checked' : ''}" id="chk_kana_${h.id}" onclick="app.toggleSelectionKanaFinal('${h.id}', event)"></div>
+          <div class="item-info">
+            <div class="item-name">${h.name}</div>
+            <div class="item-sub">${h.sire || ''}</div>
+          </div>
+        </div>
+        <div class="item-jump ${isChecked ? '' : 'disabled'}" id="jmp_kana_${h.id}" onclick="app.jumpToHorse('${h.id}')">
+          <i class="fa-solid fa-location-arrow"></i>
+        </div>
       `;
-      li.onclick = () => {
-        this.jumpToHorse(h.id);
-      };
       ul.appendChild(li);
     });
     container.appendChild(ul);
@@ -1072,13 +1288,13 @@ const app = {
       li.className = 'search-item';
       li.innerHTML = `
         <div class="item-left">
-          <div class="item-check ${isChecked ? 'checked' : ''}" id="chk_all_${h.id}" onclick="app.toggleSelectionAllTab('${h.id}')"></div>
+          <div class="item-check ${isChecked ? 'checked' : ''}" id="chk_all_${h.id}" onclick="app.toggleSelectionAllTab('${h.id}', event)"></div>
           <div class="item-info">
             <div class="item-name">${h.name}</div>
             <div class="item-sub">${h.sire}</div>
           </div>
         </div>
-        <div class="item-jump" onclick="app.jumpToHorse('${h.id}')">
+        <div class="item-jump ${isChecked ? '' : 'disabled'}" id="jmp_all_${h.id}" onclick="app.jumpToHorse('${h.id}')">
           <i class="fa-solid fa-location-arrow"></i>
         </div>
       `;
@@ -1093,7 +1309,11 @@ const app = {
     container.appendChild(ul);
   },
 
-  toggleSelectionAllTab(id) {
+  toggleSelectionAllTab(id, e) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     state.lastOp = {
       list: [...state.mySelectionIds],
       time: Date.now()
@@ -1101,13 +1321,74 @@ const app = {
     
     const idx = state.mySelectionIds.findIndex(sid => String(sid) === String(id));
     const el = document.getElementById(`chk_all_${id}`);
+    const jumpEl = document.getElementById(`jmp_all_${id}`);
     
     if (idx >= 0) {
+      if (!this.confirmRemoveFromMySelection(id)) return;
       state.mySelectionIds.splice(idx, 1);
       if(el) el.classList.remove('checked');
+      if(jumpEl) jumpEl.classList.add('disabled');
     } else {
+      if (!this.confirmAddToMySelection(id)) return;
       state.mySelectionIds.push(id);
       if(el) el.classList.add('checked');
+      if(jumpEl) jumpEl.classList.remove('disabled');
+    }
+    this.saveUserState();
+    this.showUndoToast();
+  },
+
+  toggleSelectionKanaFinal(id, e) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    state.lastOp = {
+      list: [...state.mySelectionIds],
+      time: Date.now()
+    };
+    const idx = state.mySelectionIds.findIndex(sid => String(sid) === String(id));
+    const el = document.getElementById(`chk_kana_${id}`);
+    const jumpEl = document.getElementById(`jmp_kana_${id}`);
+
+    if (idx >= 0) {
+      if (!this.confirmRemoveFromMySelection(id)) return;
+      state.mySelectionIds.splice(idx, 1);
+      if (el) el.classList.remove('checked');
+      if (jumpEl) jumpEl.classList.add('disabled');
+    } else {
+      if (!this.confirmAddToMySelection(id)) return;
+      state.mySelectionIds.push(id);
+      if (el) el.classList.add('checked');
+      if (jumpEl) jumpEl.classList.remove('disabled');
+    }
+    this.saveUserState();
+    this.showUndoToast();
+  },
+
+  toggleSelectionSireFinal(id, e) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    state.lastOp = {
+      list: [...state.mySelectionIds],
+      time: Date.now()
+    };
+    const idx = state.mySelectionIds.findIndex(sid => String(sid) === String(id));
+    const el = document.getElementById(`chk_sire_${id}`);
+    const jumpEl = document.getElementById(`jmp_sire_${id}`);
+
+    if (idx >= 0) {
+      if (!this.confirmRemoveFromMySelection(id)) return;
+      state.mySelectionIds.splice(idx, 1);
+      if (el) el.classList.remove('checked');
+      if (jumpEl) jumpEl.classList.add('disabled');
+    } else {
+      if (!this.confirmAddToMySelection(id)) return;
+      state.mySelectionIds.push(id);
+      if (el) el.classList.add('checked');
+      if (jumpEl) jumpEl.classList.remove('disabled');
     }
     this.saveUserState();
     this.showUndoToast();
@@ -1132,13 +1413,33 @@ const app = {
   
   toggleSelection(id) {
     const idx = state.mySelectionIds.findIndex(sid => String(sid) === String(id));
-    if (idx >= 0) state.mySelectionIds.splice(idx, 1);
-    else state.mySelectionIds.push(id);
+    if (idx >= 0) {
+      if (!this.confirmRemoveFromMySelection(id)) return;
+      state.mySelectionIds.splice(idx, 1);
+    }
+    else {
+      if (!this.confirmAddToMySelection(id)) return;
+      state.mySelectionIds.push(id);
+    }
     this.saveUserState();
     this.switchTab(state.activeTab); 
   },
   
+  confirmAddToMySelection(id) {
+    const horse = state.masterData.find(h => String(h.id) === String(id));
+    const label = horse ? horse.name : `ID:${id}`;
+    return confirm(`「${label}」をマイ選抜に登録しますか？`);
+  },
+
+  confirmRemoveFromMySelection(id) {
+    const horse = state.masterData.find(h => String(h.id) === String(id));
+    const label = horse ? horse.name : `ID:${id}`;
+    return confirm(`「${label}」をマイ選抜から解除しますか？`);
+  },
+
   jumpToHorse(id) {
+    if (!state.mySelectionIds.includes(id) && !this.confirmAddToMySelection(id)) return;
+
     this.closeModal('searchModal');
     
     if (state.viewMode !== 'my') {
@@ -1231,7 +1532,6 @@ const app = {
     let pointerId = null;
     let startX=0, startY=0;
     let dragTimer = null;
-    let lastTapTime = 0;
     let isDragging = false;
     let isMultiTouch = false;
     let isMoving = false;
@@ -1386,14 +1686,8 @@ const app = {
         this.saveUserState(); 
       } else {
         if (!isMoving && cell && cell.dataset.type === 'card') {
-            cell.classList.remove("pressed");
-            const now = Date.now();
-            if (now - lastTapTime < CONFIG.doubleTapDelay) {
-                triggerShowDetail(cell);
-                lastTapTime = 0;
-            } else {
-                lastTapTime = now;
-            }
+          cell.classList.remove("pressed");
+          triggerShowDetail(cell);
         }
       }
       pointerId = null;
@@ -1401,6 +1695,20 @@ const app = {
 
     this.board.addEventListener("pointerup", endInteraction);
     this.board.addEventListener("pointercancel", endInteraction);
+
+    ["detailModal", "settingsModal"].forEach((id) => {
+      const modal = document.getElementById(id);
+      if (!modal) return;
+      modal.addEventListener("click", (e) => {
+        if (e.target === modal) this.closeModal(id);
+      });
+    });
+    const searchModal = document.getElementById("searchModal");
+    if (searchModal) {
+      searchModal.addEventListener("click", (e) => {
+        if (e.target === searchModal) this.handleSearchModalBackdropTap();
+      });
+    }
     
     let initialDist = 0;
     let initialZoom = 1.0;
