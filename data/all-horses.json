@@ -185,8 +185,8 @@
       "club": "シルク",
       "price": "4,000"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://players.brightcove.net/6084369250001/default_default/index.html?videoId=6309452129112",
+    "link_pdf": "https://www.silkhorseclub.jp/hspdf/2022/2021063.pdf"
   },
   {
     "id": "2021105724",
@@ -1193,7 +1193,7 @@
       "club": "キャロット",
       "price": "2,000"
     },
-    "link_movie": "",
+    "link_movie": "https://stream1.carrotclub.net/catalog/2018/2018-carrot-bosyuba_1877.mp4",
     "link_pdf": "https://drive.google.com/file/d/1JEivLFmKs8spp0bNLu9ILUJ03A3d1hEG/view"
   },
   {
@@ -1781,8 +1781,8 @@
       "club": "キャロット",
       "price": "2,800"
     },
-    "link_movie": "",
-    "link_pdf": "https://stream1.carrotclub.net/catalog/2016/66-cc2016.mp4"
+    "link_movie": "https://stream1.carrotclub.net/catalog/2016/66-cc2016.mp4",
+    "link_pdf": null
   },
   {
     "id": "2015104688",
@@ -1970,7 +1970,7 @@
       "club": "キャロット",
       "price": "3,000"
     },
-    "link_movie": "",
+    "link_movie": "https://stream1.carrotclub.net/catalog/2015/2015-46-bosyu.mp4",
     "link_pdf": ""
   },
   {
@@ -1991,7 +1991,7 @@
       "club": "キャロット",
       "price": "6,000"
     },
-    "link_movie": "",
+    "link_movie": "https://stream1.carrotclub.net/catalog/2015/2015-03-bosyu.mp4",
     "link_pdf": ""
   },
   {
@@ -2054,7 +2054,7 @@
       "club": "サンデー",
       "price": "1,400"
     },
-    "link_movie": "",
+    "link_movie": "https://stream.sundaytc.co.jp/movie/89127_1506.mp4",
     "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/89127.pdf"
   },
   {
@@ -2096,7 +2096,7 @@
       "club": "社台",
       "price": "6,000"
     },
-    "link_movie": "",
+    "link_movie": "https://stream.shadaitc.co.jp/movie/89057_1506.mp4",
     "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/89057.pdf"
   },
   {
@@ -2138,7 +2138,7 @@
       "club": "G1",
       "price": "3,200"
     },
-    "link_movie": "",
+    "link_movie": "https://stream.g1tc.co.jp/movie/14037_1506.mp4",
     "link_pdf": "https://www.g1tc.co.jp/catalog/pdf/14037.pdf"
   },
   {
@@ -2180,8 +2180,8 @@
       "club": "ウイン",
       "price": "3,200"
     },
-    "link_movie": "",
-    "link_pdf": ""
+    "link_movie": "https://tv-player.ap1.admint.biz/5e4a7effafe26/player/e1861ad236b8491db01220d12a0a873a?site_id=5e4a7effafe26",
+    "link_pdf": "https://www.win-rc.co.jp/tmpfile/catalogue/20140007_20150619.pdf"
   },
   {
     "id": "2013106079",
@@ -2222,7 +2222,7 @@
       "club": "キャロット",
       "price": "12,000"
     },
-    "link_movie": "",
+    "link_movie": "https://stream1.carrotclub.net/catalog/2014/1441_mv.mp4",
     "link_pdf": ""
   },
   {
@@ -2243,7 +2243,7 @@
       "club": "キャロット",
       "price": "4,400"
     },
-    "link_movie": "",
+    "link_movie": "https://stream1.carrotclub.net/catalog/2014/1439_mv.mp4",
     "link_pdf": ""
   },
   {
@@ -2285,7 +2285,7 @@
       "club": "サンデー",
       "price": "2,000"
     },
-    "link_movie": "",
+    "link_movie": "https://tv-player.ap1.admint.biz/5e4a7effafe26/player/2ec8aee489e341efa5ec831b583672b9?site_id=5e4a7effafe26",
     "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/88108.pdf"
   },
   {
@@ -2327,7 +2327,7 @@
       "club": "サンデー",
       "price": "8,000"
     },
-    "link_movie": "",
+    "link_movie": "https://tv-player.ap1.admint.biz/5e4a7effafe26/player/a42bc7d7361f42aa88243ef592bca37f?site_id=5e4a7effafe26",
     "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/87142.pdf"
   },
   {
@@ -2390,7 +2390,7 @@
       "club": "サンデー",
       "price": "10,000"
     },
-    "link_movie": "",
+    "link_movie": "https://tv-player.ap1.admint.biz/5e4a7effafe26/player/8eab28659ca14a1ca63214cf138b8a39?site_id=5e4a7effafe26",
     "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/87104.pdf"
   },
   {
@@ -2432,7 +2432,7 @@
       "club": "サンデー",
       "price": "3,200"
     },
-    "link_movie": "",
+    "link_movie": "https://tv-player.ap1.admint.biz/5e4a7effafe26/player/a2561690efe649009610cc681d3fae44?site_id=5e4a7effafe26",
     "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/87167.pdf"
   },
   {
@@ -2474,7 +2474,7 @@
       "club": "東京",
       "price": "1,600"
     },
-    "link_movie": "",
+    "link_movie": "https://www.youtube.com/watch?v=BoK0ncJXA7w",
     "link_pdf": ""
   },
   {
@@ -2600,7 +2600,7 @@
       "club": "社台",
       "price": "2,400"
     },
-    "link_movie": "",
+    "link_movie": "https://tv-player.ap1.admint.biz/5e4a7effafe26/player/7bbb5110d3d747b389a4e343eb61ca67?site_id=5e4a7effafe26",
     "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/87079.pdf"
   },
   {
@@ -2705,7 +2705,7 @@
       "club": "サンデー",
       "price": "2,000"
     },
-    "link_movie": "",
+    "link_movie": "https://tv-player.ap1.admint.biz/5e4a7effafe26/player/0c945fef9a0247c6bce0223b918d7dd1?site_id=5e4a7effafe26",
     "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/84132.pdf"
   },
   {
@@ -2810,7 +2810,7 @@
       "club": "サンデー",
       "price": "3,400"
     },
-    "link_movie": "",
+    "link_movie": "https://tv-player.ap1.admint.biz/5e4a7effafe26/player/5b51a8ca35024dcf9b55cc698abe9e57?site_id=5e4a7effafe26",
     "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/84141.pdf"
   },
   {
@@ -2831,7 +2831,7 @@
       "club": "サンデー",
       "price": "4,400"
     },
-    "link_movie": "",
+    "link_movie": "https://tv-player.ap1.admint.biz/5e4a7effafe26/player/108290147b344e4383db5ec824f875b4?site_id=5e4a7effafe26",
     "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/84139.pdf"
   },
   {
@@ -3083,7 +3083,7 @@
       "club": "サンデー",
       "price": "8,000"
     },
-    "link_movie": "",
+    "link_movie": "https://www.youtube.com/watch?v=XZqeRBQZE_k&t=229s",
     "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/82149.pdf"
   },
   {
@@ -3146,7 +3146,7 @@
       "club": "サンデー",
       "price": "18,000"
     },
-    "link_movie": "",
+    "link_movie": "https://www.youtube.com/watch?v=XZqeRBQZE_k&t=176s",
     "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/82150.pdf"
   },
   {
@@ -3188,7 +3188,7 @@
       "club": "サンデー",
       "price": "4,000"
     },
-    "link_movie": "",
+    "link_movie": "https://www.youtube.com/watch?v=XZqeRBQZE_k&t=738s",
     "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/81144.pdf"
   },
   {
@@ -3314,7 +3314,7 @@
       "club": "社台",
       "price": "5,000"
     },
-    "link_movie": "",
+    "link_movie": "https://www.youtube.com/watch?v=XZqeRBQZE_k&t=615s",
     "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/80068.pdf"
   },
   {
@@ -3335,7 +3335,7 @@
       "club": "社台",
       "price": "1,600"
     },
-    "link_movie": "",
+    "link_movie": "https://www.youtube.com/watch?v=XZqeRBQZE_k&t=676s",
     "link_pdf": "https://www.shadaitc.co.jp/catalog/pdf/80058.pdf"
   },
   {
@@ -3377,7 +3377,7 @@
       "club": "サンデー",
       "price": "2,400"
     },
-    "link_movie": "",
+    "link_movie": "https://www.youtube.com/watch?v=XZqeRBQZE_k&t=42s",
     "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/79049.pdf"
   },
   {
@@ -3419,7 +3419,7 @@
       "club": "サンデー",
       "price": "2,000"
     },
-    "link_movie": "",
+    "link_movie": "https://www.youtube.com/watch?v=XZqeRBQZE_k&t=107s",
     "link_pdf": "https://www.sundaytc.co.jp/catalog/pdf/79089.pdf"
   },
   {

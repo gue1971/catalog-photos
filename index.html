@@ -877,6 +877,10 @@ const app = {
     setTimeout(()=> cell.classList.remove("pressed"), 200);
     
     const horseId = cell.dataset.horseId;
+    this.showDetailById(horseId);
+  },
+
+  showDetailById(horseId) {
     const horse = state.masterData.find(h => String(h.id) === String(horseId));
     if (!horse) return;
 
@@ -1171,10 +1175,11 @@ const app = {
             <div class="item-sub">${h.sire || ''}</div>
           </div>
         </div>
-        <div class="item-jump ${isChecked ? '' : 'disabled'}" id="jmp_sire_${h.id}" onclick="app.jumpToHorse('${h.id}')">
+        <div class="item-jump ${isChecked ? '' : 'disabled'}" id="jmp_sire_${h.id}" onclick="app.jumpToHorse('${h.id}', event)">
           <i class="fa-solid fa-location-arrow"></i>
         </div>
       `;
+      li.onclick = () => { this.showDetailById(h.id); };
       ul.appendChild(li);
     });
     if (targetHorses.length === 0) {
@@ -1302,10 +1307,11 @@ const app = {
             <div class="item-sub">${h.sire || ''}</div>
           </div>
         </div>
-        <div class="item-jump ${isChecked ? '' : 'disabled'}" id="jmp_kana_${h.id}" onclick="app.jumpToHorse('${h.id}')">
+        <div class="item-jump ${isChecked ? '' : 'disabled'}" id="jmp_kana_${h.id}" onclick="app.jumpToHorse('${h.id}', event)">
           <i class="fa-solid fa-location-arrow"></i>
         </div>
       `;
+      li.onclick = () => { this.showDetailById(h.id); };
       ul.appendChild(li);
     });
     container.appendChild(ul);
@@ -1399,10 +1405,11 @@ const app = {
             <div class="item-sub">${h.sire}</div>
           </div>
         </div>
-        <div class="item-jump ${isChecked ? '' : 'disabled'}" id="jmp_all_${h.id}" onclick="app.jumpToHorse('${h.id}')">
+        <div class="item-jump ${isChecked ? '' : 'disabled'}" id="jmp_all_${h.id}" onclick="app.jumpToHorse('${h.id}', event)">
           <i class="fa-solid fa-location-arrow"></i>
         </div>
       `;
+      li.onclick = () => { this.showDetailById(h.id); };
       ul.appendChild(li);
     });
     
@@ -1543,7 +1550,11 @@ const app = {
     return confirm(`「${label}」をマイ選抜から解除しますか？`);
   },
 
-  jumpToHorse(id) {
+  jumpToHorse(id, e) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (!this.isSelected(id) && !this.confirmAddToMySelection(id)) return;
 
     this.closeModal('searchModal');
