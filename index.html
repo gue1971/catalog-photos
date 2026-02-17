@@ -648,14 +648,17 @@
       <div style="font-size:12px; color:#666; margin-bottom:8px;">
         ズーム: <span id="zoomDisp">100%</span>
       </div>
+      <div style="font-size:11px; color:#888; margin-bottom:4px;">
+        ※ 全馬データ（horses.json）は変更されません
+      </div>
       <button class="menu-btn" onclick="app.exportData()">
-        <i class="fa-solid fa-download"></i> データを保存 (JSON)
+        <i class="fa-solid fa-upload"></i> 表示状態をエクスポート (JSON)
       </button>
       <button class="menu-btn" onclick="app.openImportPicker()">
-        <i class="fa-solid fa-upload"></i> データを読込
+        <i class="fa-solid fa-download"></i> 表示状態をインポート
       </button>
       <button class="menu-btn" onclick="app.resetData()" style="color:#f55; border-color:#533;">
-        <i class="fa-solid fa-trash"></i> 全データをリセット
+        <i class="fa-solid fa-trash"></i> 表示状態をリセット
       </button>
     </div>
   </div>
