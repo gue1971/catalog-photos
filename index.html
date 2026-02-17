@@ -583,7 +583,7 @@
       <button class="menu-btn" onclick="app.exportData()">
         <i class="fa-solid fa-download"></i> データを保存 (JSON)
       </button>
-      <button class="menu-btn" onclick="document.getElementById('fileInput').click()">
+      <button class="menu-btn" onclick="app.openImportPicker()">
         <i class="fa-solid fa-upload"></i> データを読込
       </button>
       <button class="menu-btn" onclick="app.resetData()" style="color:#f55; border-color:#533;">
@@ -770,7 +770,7 @@ const app = {
       const imgPath = `assets/images/${item.id}.jpeg`;
       const sireName = item.sire || "不明";
       
-      const isSelected = state.mySelectionIds.includes(item.id);
+      const isSelected = this.isSelected(item.id);
       
       el.innerHTML = `
         <img src="${imgPath}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
@@ -903,6 +903,10 @@ const app = {
       this.board.classList.remove("view-detail");
     }
   },
+
+  isSelected(id) {
+    return state.mySelectionIds.some((sid) => String(sid) === String(id));
+  },
   
   updateUIState() {
     if (state.viewMode === 'my') {
@@ -1006,7 +1010,7 @@ const app = {
       const s = h.sire ? h.sire.trim() : "不明";
       if(!stats[s]) stats[s] = { total: 0, checked: 0 };
       stats[s].total++;
-      if(state.mySelectionIds.includes(h.id)) stats[s].checked++;
+      if (this.isSelected(h.id)) stats[s].checked++;
     });
 
     const grouped = new Map();
@@ -1072,7 +1076,7 @@ const app = {
     const ul = document.createElement('ul');
     ul.className = 'search-list';
     targetHorses.forEach(h => {
-      const isChecked = state.mySelectionIds.includes(h.id);
+      const isChecked = this.isSelected(h.id);
       const li = document.createElement('li');
       li.className = 'search-item';
       li.innerHTML = `
@@ -1203,7 +1207,7 @@ const app = {
     ul.className = 'search-list';
     
     targetHorses.forEach(h => {
-      const isChecked = state.mySelectionIds.includes(h.id);
+      const isChecked = this.isSelected(h.id);
       const li = document.createElement('li');
       li.className = 'search-item';
       li.innerHTML = `
@@ -1224,13 +1228,17 @@ const app = {
   },
 
   renderAllTab(container) {
+    const allCount = state.masterData.length;
+    const checkedCount = state.masterData.filter((h) => this.isSelected(h.id)).length;
+    const uncheckedCount = allCount - checkedCount;
+
     const ctrl = document.createElement('div');
     ctrl.className = 'control-bar';
     ctrl.innerHTML = `
       <div class="ctrl-row">
-        <div class="ctrl-btn ${state.listFilter==='all'?'active':''}" onclick="app.setListFilter('all')">すべて</div>
-        <div class="ctrl-btn ${state.listFilter==='checked'?'active':''}" onclick="app.setListFilter('checked')">選択済</div>
-        <div class="ctrl-btn ${state.listFilter==='unchecked'?'active':''}" onclick="app.setListFilter('unchecked')">未選択</div>
+        <div class="ctrl-btn ${state.listFilter==='all'?'active':''}" onclick="app.setListFilter('all')" id="btn_filter_all">すべて (${allCount})</div>
+        <div class="ctrl-btn ${state.listFilter==='checked'?'active':''}" onclick="app.setListFilter('checked')" id="btn_filter_checked">選択済 (${checkedCount})</div>
+        <div class="ctrl-btn ${state.listFilter==='unchecked'?'active':''}" onclick="app.setListFilter('unchecked')" id="btn_filter_unchecked">未選択 (${uncheckedCount})</div>
       </div>
       <div class="ctrl-row">
         <div class="ctrl-btn ${state.listSort==='id'?'active':''}" onclick="app.setListSort('id')">ID順</div>
@@ -1247,6 +1255,21 @@ const app = {
     this.renderAllListItems(listContainer);
   },
 
+  refreshAllTabFilterCounts() {
+    const allBtn = document.getElementById('btn_filter_all');
+    const checkedBtn = document.getElementById('btn_filter_checked');
+    const uncheckedBtn = document.getElementById('btn_filter_unchecked');
+    if (!allBtn || !checkedBtn || !uncheckedBtn) return;
+
+    const allCount = state.masterData.length;
+    const checkedCount = state.masterData.filter((h) => this.isSelected(h.id)).length;
+    const uncheckedCount = allCount - checkedCount;
+
+    allBtn.textContent = `すべて (${allCount})`;
+    checkedBtn.textContent = `選択済 (${checkedCount})`;
+    uncheckedBtn.textContent = `未選択 (${uncheckedCount})`;
+  },
+
   setListFilter(val) {
     state.listFilter = val;
     this.switchTab('all'); 
@@ -1261,9 +1284,9 @@ const app = {
     let list = [...state.masterData];
 
     if (state.listFilter === 'checked') {
-      list = list.filter(h => state.mySelectionIds.includes(h.id));
+      list = list.filter(h => this.isSelected(h.id));
     } else if (state.listFilter === 'unchecked') {
-      list = list.filter(h => !state.mySelectionIds.includes(h.id));
+      list = list.filter(h => !this.isSelected(h.id));
     }
 
     if (state.listSort === 'name') {
@@ -1280,10 +1303,8 @@ const app = {
 
     const ul = document.createElement('ul');
     ul.className = 'search-list';
-    const mySet = new Set(state.mySelectionIds);
-
     list.forEach(h => {
-      const isChecked = mySet.has(h.id);
+      const isChecked = this.isSelected(h.id);
       const li = document.createElement('li');
       li.className = 'search-item';
       li.innerHTML = `
@@ -1335,6 +1356,7 @@ const app = {
       if(jumpEl) jumpEl.classList.remove('disabled');
     }
     this.saveUserState();
+    this.refreshAllTabFilterCounts();
     this.showUndoToast();
   },
 
@@ -1438,7 +1460,7 @@ const app = {
   },
 
   jumpToHorse(id) {
-    if (!state.mySelectionIds.includes(id) && !this.confirmAddToMySelection(id)) return;
+    if (!this.isSelected(id) && !this.confirmAddToMySelection(id)) return;
 
     this.closeModal('searchModal');
     
@@ -1446,7 +1468,7 @@ const app = {
       this.resetView(); 
     }
     
-    if (!state.mySelectionIds.includes(id)) {
+    if (!this.isSelected(id)) {
       state.mySelectionIds.push(id);
       this.saveUserState();
       this.updateRenderItems();
@@ -1491,6 +1513,7 @@ const app = {
   },
 
   exportData() {
+    this.closeModal('settingsModal');
     const data = { mySelectionIds: state.mySelectionIds, zoom: state.zoom };
     const str = JSON.stringify(data, null, 2);
     const blob = new Blob([str], { type: "application/json" });
@@ -1500,6 +1523,11 @@ const app = {
     a.download = `horse_board_db.json`;
     a.click();
     URL.revokeObjectURL(url);
+  },
+
+  openImportPicker() {
+    this.closeModal('settingsModal');
+    document.getElementById('fileInput').click();
   },
   
   importData(input) {
@@ -1641,8 +1669,8 @@ const app = {
         const fromId = dragEl.dataset.horseId;
         const toId = targetCell.dataset.horseId;
         
-        const fromIdxState = state.mySelectionIds.indexOf(fromId);
-        const toIdxState = state.mySelectionIds.indexOf(toId);
+        const fromIdxState = state.mySelectionIds.findIndex((sid) => String(sid) === String(fromId));
+        const toIdxState = state.mySelectionIds.findIndex((sid) => String(sid) === String(toId));
         
         if (fromIdxState >= 0 && toIdxState >= 0) {
             const temp = state.mySelectionIds[fromIdxState];
