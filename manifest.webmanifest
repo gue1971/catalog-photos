@@ -1,8 +1,9 @@
 {
   "name": "活躍馬募集時写真集",
   "short_name": "募集時写真",
-  "start_url": "./",
-  "scope": "./",
+  "id": "/catalog-photos/",
+  "start_url": "/catalog-photos/",
+  "scope": "/catalog-photos/",
   "display": "fullscreen",
   "theme_color": "#111111",
   "background_color": "#111111",
