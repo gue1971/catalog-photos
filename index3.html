@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>45頭 照合チェック</title>
+  <style>
+    :root { --bg:#111; --card:#1b1b1b; --line:#333; --text:#eaeaea; --muted:#aaa; --ok:#49b26b; --ng:#d46a6a; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",sans-serif; }
+    .wrap { max-width:1200px; margin:0 auto; padding:16px; }
+    h1 { margin:0 0 6px; font-size:20px; }
+    .desc { color:var(--muted); font-size:13px; margin-bottom:10px; }
+    .toolbar { display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
+    .btn { background:#2a2a2a; color:#ddd; border:1px solid #444; border-radius:6px; padding:7px 10px; cursor:pointer; font-size:12px; }
+    .btn:active { background:#3a3a3a; }
+    .stat { color:var(--muted); font-size:12px; }
+    .box { background:var(--card); border:1px solid var(--line); border-radius:8px; overflow:auto; }
+    table { width:100%; border-collapse:collapse; min-width:1060px; }
+    th,td { border-bottom:1px solid var(--line); padding:9px 8px; font-size:13px; text-align:left; vertical-align:middle; }
+    th { color:var(--muted); font-weight:600; }
+    tr:last-child td { border-bottom:none; }
+    .name { font-weight:700; white-space:nowrap; }
+    a { color:#7fb3ff; text-decoration:none; }
+    a:hover { text-decoration:underline; }
+    .ok { color:var(--ok); font-weight:700; }
+    .ng { color:var(--ng); font-weight:700; }
+    .err { margin-top:10px; color:#ff9a9a; font-size:13px; }
+    .num { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; color:#c7c7c7; }
+    input[type="checkbox"] { width:18px; height:18px; cursor:pointer; }
+    .checked-row { background:#162015; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>45頭 PDF / Movie 照合チェック</h1>
+    <div class="desc">data/all-horses.json + Desktop/参考.csv の馬番号で照合した内容を確認するページです。</div>
+
+    <div class="toolbar">
+      <button class="btn" id="showAllBtn">全件表示</button>
+      <button class="btn" id="showUncheckedBtn">未チェックのみ</button>
+      <button class="btn" id="clearBtn">チェック全解除</button>
+      <span class="stat" id="stat"></span>
+    </div>
+
+    <div class="box">
+      <table>
+        <thead>
+          <tr>
+            <th>確認</th>
+            <th>生年</th>
+            <th>ID</th>
+            <th>馬名</th>
+            <th>クラブ</th>
+            <th>馬番号</th>
+            <th>PDF</th>
+            <th>Movie</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <div id="error" class="err" style="display:none;"></div>
+    <div id="fileFallback" style="display:none; margin-top:10px;">
+      <button id="pickJsonBtn" class="btn">all-horses.json を選択</button>
+      <input id="jsonInput" type="file" accept=".json,application/json" style="display:none;">
+    </div>
+  </div>
+
+  <script>
+    const CHECK_KEY = 'index3_check_45';
+    const targets = [
+      "ネオユニヴァース","ハーツクライ","ダンスインザムード","スウィフトカレント","デルタブルース",
+      "シックスセンス","デアリングハート","インティライミ","ヴァーミリアン","ローゼンクロイツ",
+      "ファイングレイン","ドリームジャーニー","アルナスライン","スリープレスナイト","レジネッタ",
+      "リトルアマポーラ","キャプテントゥーレ","アンライバルド","ブエナビスタ","ルーラーシップ",
+      "ローズキングダム","オルフェーヴル","ベルシャザール","マルセリーナ","グレープブランデー",
+      "レーヴディソール","ディープブリランテ","ジェンティルドンナ","ジョワドヴィーヴル","ワールドエース",
+      "ヴァンセンヌ","フェノーメノ","フェイムゲーム","イスラボニータ","リアルスティール",
+      "ジュールポレール","メジャーエンブレム","シルバーステート","ペルシアンナイト","サングレーザー",
+      "スティッフェリオ","ソウルスターリング","アエロリット","ダンビュライト","アルアイン"
+    ];
+
+    const horseNoByName = {
+      "ネオユニヴァース":"75048","ハーツクライ":"76050","ダンスインザムード":"76007","スウィフトカレント":"76049","デルタブルース":"76170",
+      "シックスセンス":"77051","デアリングハート":"77059","インティライミ":"77174","ヴァーミリアン":"77167","ローゼンクロイツ":"77149",
+      "ファイングレイン":"78058","ドリームジャーニー":"79187","アルナスライン":"79182","スリープレスナイト":"79165","レジネッタ":"80066",
+      "リトルアマポーラ":"80051","キャプテントゥーレ":"80050","アンライバルド":"81172","ブエナビスタ":"81144","ルーラーシップ":"82150",
+      "ローズキングダム":"82149","オルフェーヴル":"83170","ベルシャザール":"83046","マルセリーナ":"83043","グレープブランデー":"83060",
+      "レーヴディソール":"83141","ディープブリランテ":"84139","ジェンティルドンナ":"84141","ジョワドヴィーヴル":"84144","ワールドエース":"84137",
+      "ヴァンセンヌ":"84038","フェノーメノ":"84132","フェイムゲーム":"85110","イスラボニータ":"86027","リアルスティール":"87142",
+      "ジュールポレール":"13026","メジャーエンブレム":"88108","シルバーステート":"13025","ペルシアンナイト":"14037","サングレーザー":"14026",
+      "スティッフェリオ":"89057","ソウルスターリング":"89042","アエロリット":"89127","ダンビュライト":"89166","アルアイン":"89143"
+    };
+
+    function getChecks() {
+      try { return JSON.parse(localStorage.getItem(CHECK_KEY) || '{}'); }
+      catch { return {}; }
+    }
+    function setChecks(v) { localStorage.setItem(CHECK_KEY, JSON.stringify(v)); }
+
+    function linkCell(url, label) {
+      if (!url) return '<span class="ng">未設定</span>';
+      return `<span class="ok">設定済</span> <a href="${url}" target="_blank" rel="noopener">${label}</a>`;
+    }
+
+    function render(all, showUncheckedOnly=false) {
+      const rowsEl = document.getElementById('rows');
+      const statEl = document.getElementById('stat');
+      const checks = getChecks();
+      const byName = new Map(all.map(h => [h.name, h]));
+      let checkedCount = 0;
+
+      const html = targets.map(name => {
+        const h = byName.get(name);
+        const checked = !!checks[name];
+        if (checked) checkedCount++;
+        if (showUncheckedOnly && checked) return '';
+
+        if (!h) {
+          return `<tr><td><input type="checkbox" data-name="${name}" ${checked?'checked':''}></td><td>-</td><td>-</td><td class="name">${name}</td><td>-</td><td class="num">${horseNoByName[name]||''}</td><td><span class="ng">データなし</span></td><td><span class="ng">データなし</span></td></tr>`;
+        }
+
+        const year = String(h.id).slice(0,4);
+        const club = (h.detail && h.detail.club) || '';
+        const cls = checked ? 'checked-row' : '';
+        return `
+          <tr class="${cls}">
+            <td><input type="checkbox" data-name="${h.name}" ${checked?'checked':''}></td>
+            <td>${year}</td>
+            <td>${h.id}</td>
+            <td class="name">${h.name}</td>
+            <td>${club}</td>
+            <td class="num">${horseNoByName[h.name]||''}</td>
+            <td>${linkCell(h.link_pdf||'', 'PDF')}</td>
+            <td>${linkCell(h.link_movie||'', 'Movie')}</td>
+          </tr>
+        `;
+      }).join('');
+
+      rowsEl.innerHTML = html;
+      statEl.textContent = `確認: ${checkedCount} / ${targets.length}`;
+
+      rowsEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const map = getChecks();
+          map[cb.dataset.name] = cb.checked;
+          setChecks(map);
+          render(all, showUncheckedOnly);
+        });
+      });
+    }
+
+    async function main() {
+      const errEl = document.getElementById('error');
+      const fallback = document.getElementById('fileFallback');
+      const jsonInput = document.getElementById('jsonInput');
+      const pickBtn = document.getElementById('pickJsonBtn');
+
+      let all = null;
+      try {
+        const res = await fetch(`data/all-horses.json?t=${Date.now()}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        all = await res.json();
+      } catch (e) {
+        errEl.style.display = 'block';
+        errEl.textContent = `読込エラー: ${e}（file:// で開いた場合は下のボタンでall-horses.jsonを選択）`;
+        fallback.style.display = 'block';
+      }
+
+      let uncheckedOnly = false;
+      const rerender = () => { if (all) render(all, uncheckedOnly); };
+
+      document.getElementById('showAllBtn').addEventListener('click', () => { uncheckedOnly = false; rerender(); });
+      document.getElementById('showUncheckedBtn').addEventListener('click', () => { uncheckedOnly = true; rerender(); });
+      document.getElementById('clearBtn').addEventListener('click', () => {
+        if (!confirm('チェックをすべて解除しますか？')) return;
+        localStorage.removeItem(CHECK_KEY);
+        rerender();
+      });
+
+      pickBtn.addEventListener('click', () => jsonInput.click());
+      jsonInput.addEventListener('change', async () => {
+        const file = jsonInput.files && jsonInput.files[0];
+        if (!file) return;
+        try {
+          all = JSON.parse(await file.text());
+          errEl.style.display = 'none';
+          fallback.style.display = 'none';
+          rerender();
+        } catch (e) {
+          errEl.style.display = 'block';
+          errEl.textContent = `JSON読込エラー: ${e}`;
+        }
+      });
+
+      rerender();
+    }
+
+    main();
+  </script>
+</body>
+</html>

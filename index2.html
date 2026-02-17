@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>45頭リンク確認</title>
+  <style>
+    :root {
+      --bg: #111;
+      --card: #1b1b1b;
+      --line: #333;
+      --text: #eaeaea;
+      --muted: #aaa;
+      --ok: #49b26b;
+      --ng: #d46a6a;
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Yu Gothic", sans-serif;
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    h1 {
+      font-size: 20px;
+      margin: 0 0 6px;
+    }
+    .desc {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+    .box {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 900px;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 8px;
+      vertical-align: middle;
+      font-size: 13px;
+      text-align: left;
+    }
+    th { color: var(--muted); font-weight: 600; }
+    tr:last-child td { border-bottom: none; }
+    .name { font-weight: 700; white-space: nowrap; }
+    a { color: #7fb3ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .ok { color: var(--ok); font-weight: 700; }
+    .ng { color: var(--ng); font-weight: 700; }
+    .err {
+      margin-top: 12px;
+      color: #ff9a9a;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>45頭 PDF/Movie リンク確認</h1>
+    <div class="desc">対象: 先ほど指定した45頭（生年古い順）。データ元: <code>data/all-horses.json</code></div>
+    <div class="box">
+      <table>
+        <thead>
+          <tr>
+            <th>生年</th>
+            <th>ID</th>
+            <th>馬名</th>
+            <th>クラブ</th>
+            <th>PDF</th>
+            <th>Movie</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div id="error" class="err" style="display:none;"></div>
+    <div id="fileFallback" style="display:none; margin-top:10px;">
+      <button id="pickBtn" style="background:#2a2a2a;color:#ddd;border:1px solid #444;border-radius:6px;padding:8px 12px;cursor:pointer;">all-horses.json を選択</button>
+      <input id="fileInput" type="file" accept=".json,application/json" style="display:none;">
+    </div>
+  </div>
+
+  <script>
+    const targetNames = [
+      "ネオユニヴァース","ハーツクライ","ダンスインザムード","スウィフトカレント","デルタブルース",
+      "シックスセンス","デアリングハート","インティライミ","ヴァーミリアン","ローゼンクロイツ",
+      "ファイングレイン","ドリームジャーニー","アルナスライン","スリープレスナイト","レジネッタ",
+      "リトルアマポーラ","キャプテントゥーレ","アンライバルド","ブエナビスタ","ルーラーシップ",
+      "ローズキングダム","オルフェーヴル","ベルシャザール","マルセリーナ","グレープブランデー",
+      "レーヴディソール","ディープブリランテ","ジェンティルドンナ","ジョワドヴィーヴル","ワールドエース",
+      "ヴァンセンヌ","フェノーメノ","フェイムゲーム","イスラボニータ","リアルスティール",
+      "ジュールポレール","メジャーエンブレム","シルバーステート","ペルシアンナイト","サングレーザー",
+      "スティッフェリオ","ソウルスターリング","アエロリット","ダンビュライト","アルアイン"
+    ];
+
+    function tdHtml(link, kind) {
+      if (!link) return `<span class="ng">未設定</span>`;
+      return `<span class="ok">設定済</span> <a href="${link}" target="_blank" rel="noopener">${kind}を開く</a>`;
+    }
+
+    function renderRows(all) {
+      const rowsEl = document.getElementById('rows');
+      const errEl = document.getElementById('error');
+      const byName = new Map(all.map(h => [h.name, h]));
+      const missing = [];
+      errEl.style.display = 'none';
+      errEl.textContent = '';
+
+      rowsEl.innerHTML = targetNames.map(name => {
+        const h = byName.get(name);
+        if (!h) {
+          missing.push(name);
+          return `<tr><td>-</td><td>-</td><td class="name">${name}</td><td>-</td><td><span class="ng">データなし</span></td><td><span class="ng">データなし</span></td></tr>`;
+        }
+        const year = String(h.id).slice(0, 4);
+        const club = (h.detail && h.detail.club) || '';
+        const pdf = h.link_pdf || '';
+        const movie = h.link_movie || '';
+        return `
+          <tr>
+            <td>${year}</td>
+            <td>${h.id}</td>
+            <td class="name">${h.name}</td>
+            <td>${club}</td>
+            <td>${tdHtml(pdf, 'PDF')}</td>
+            <td>${tdHtml(movie, 'Movie')}</td>
+          </tr>
+        `;
+      }).join('');
+
+      if (missing.length > 0) {
+        errEl.style.display = 'block';
+        errEl.textContent = `all-horses.json に見つからない馬: ${missing.join(' / ')}`;
+      }
+    }
+
+    async function main() {
+      const errEl = document.getElementById('error');
+      const fallback = document.getElementById('fileFallback');
+      const input = document.getElementById('fileInput');
+      const pickBtn = document.getElementById('pickBtn');
+      try {
+        const res = await fetch(`data/all-horses.json?t=${Date.now()}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const all = await res.json();
+        renderRows(all);
+      } catch (e) {
+        errEl.style.display = 'block';
+        errEl.textContent = `読込エラー: ${e}（file://で開いている場合は下のボタンからall-horses.jsonを選択）`;
+        fallback.style.display = 'block';
+      }
+
+      pickBtn.addEventListener('click', () => input.click());
+      input.addEventListener('change', async () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const all = JSON.parse(text);
+          renderRows(all);
+          errEl.style.display = 'none';
+          fallback.style.display = 'none';
+        } catch (e) {
+          errEl.style.display = 'block';
+          errEl.textContent = `JSON読込エラー: ${e}`;
+        }
+      });
+    }
+
+    main();
+  </script>
+</body>
+</html>
